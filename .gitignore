@@ -1,0 +1,12 @@
+.svn
+*~
+*.o
+*.so
+moc_*
+*.user
+Makefile
+config.pro
+config.log
+mythconfig.mak
+i18n
+themenop
