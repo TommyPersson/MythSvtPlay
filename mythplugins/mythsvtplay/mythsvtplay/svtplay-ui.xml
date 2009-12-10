@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mythuitheme>
+
+  <window name="hello">
+
+    <font name="title" face="Arial">
+     <color>#ffffff</color>
+     <size>24</size>
+     <bold>yes</bold>
+    </font>
+
+    <container name="hello">
+      <area>20,20,780,450</area>
+
+      <textarea name="title" draworder="1" align="center">
+        <font>title</font>
+        <area>0,0,780,40</area>
+        <value>Hello MythTV!</value>
+      </textarea>
+
+    </container>
+
+    </window>
+</mythuitheme>

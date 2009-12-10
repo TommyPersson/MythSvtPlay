@@ -1,0 +1,755 @@
+#!/bin/sh
+#
+# Configure script for mythplugins
+#
+
+#
+#    default parameters for all plugins
+#
+
+prefix="/usr/"
+libdir_name="lib"
+sysroot=""
+
+svtplay="yes"
+
+music="no"
+video="no"
+weather="no"
+gallery="no"
+game="no"
+news="no"
+browser="no"
+flix="no"
+archive="no"
+zoneminder="no"
+movies="no"
+
+cc="gcc"
+qmake="qmake"
+
+opengl="yes"
+visual="yes"
+fftw_lib="yes"
+fftw_lib3="yes"
+sdl="yes"
+exif="yes"
+newexif="yes"
+festival="no"     # no config detection/setup routine
+
+targetos=`uname -s`
+
+if test x"$1" = x"-h" -o x"$1" = x"--help" ; then
+cat << EOF
+
+Usage:   configure [options]
+Options: [defaults in brackets after descriptions]
+NB:      all --enable-* options can be reversed with --disable-*
+
+Generic options:
+  --prefix=PREFIX          MythTV install location PREFIX [$prefix]
+  --sysroot=SYSROOT        MythTV sysroot location SYSROOT [$sysroot]
+  --qmake=QMAKE            use specified qmake [$qmake]
+  --libdir-name=LIBNAME    install/look for libs in PREFIX/LIBNAME [$libdir_name]
+  --help                   print this message
+  --enable-all             Enable all options
+  --enable-opengl          enable OpenGL (Music and Gallery) [$opengl]
+  --previous               use previous configure parameters if possible
+
+MythArchive related options:
+  --enable-mytharchive     build the mytharchive plugin [$archive]
+
+MythBrowser related options:
+  --enable-mythbrowser     build the mythbrowser plugin [$browser]
+
+MythGallery related options:
+  --enable-mythgallery     build the mythgallery plugin [$gallery]
+  --enable-exif            enable reading of EXIF headers [$exif]
+  --enable-new-exif        use libexif > version 0.6.9 [$newexif]
+
+MythGame related options:
+  --enable-mythgame        build the mythgame plugin [$game]
+
+MythMusic related options:
+  --enable-mythmusic       build the mythmusic plugin [$music]
+  --enable-libvisual       enable libvisual visualizers [$visual]
+  --enable-fftw            enable fftw visualizers [$fftw_lib]
+  --enable-sdl             use SDL for the synaesthesia output [$sdl]
+
+MythNews related options:
+  --enable-mythnews        build the mythnews plugin [$news]
+
+MythVideo related options:
+  --enable-mythvideo       build the mythvideo plugin [$video]
+
+MythWeather related options:
+  --enable-mythweather     build the mythweather plugin [$weather]
+
+MythZoneMinder related options:
+  --enable-mythzoneminder  build the mythzoneminder plugin [$zoneminder]
+
+MythMovies related options:
+  --enable-mythmovies      build the mythmovies plugin [$movies]
+
+EOF
+exit 1
+fi
+
+if [ -e config.log ] ; then
+    PCONF=`cat config.log | tail -n 1 | grep configure`
+    if test x"$PCONF" != x"" ; then
+        PCONF=`echo $PCONF | sed 's/.\/configure//g'`
+    fi
+    for opt do
+        if test x"$opt" != x"--prev" -a x"$opt" != x"--previous" ; then
+            OTHOPT="$OTHOPT$opt"
+        fi
+        if test x"$opt" = x"--prev" -o x"$opt" = x"--previous" ; then
+            if test x"$PCONF" != "--prev" ; then
+                PREV="yes";
+            fi
+        fi
+    done
+    if test x"$PREV" = x"yes"; then
+        echo "Options: $PCONF $OTHOPT"
+        ./configure $PCONF $OTHOPT
+        exit
+    fi
+fi
+
+CONFIGURATION_OPTS=""
+for opt do
+  CONFIGURATION_OPTS="$CONFIGURATION_OPTS ""$opt"
+done
+
+date >> config.log
+echo "   $0$CONFIGURATION_OPTS" >> config.log
+
+for opt do
+  case "$opt" in
+  --prefix=*) prefix=`echo $opt | cut -d '=' -f 2`
+  ;;
+  --sysroot=*) sysroot=$(echo $opt | cut -d '=' -f 2)
+  ;;
+  --qmake=*) qmake=`echo $opt | cut -d '=' -f 2`
+  ;;
+  --libdir-name=*) libdir_name=`echo $opt | cut -d '=' -f 2`;
+  ;;
+  --enable-mytharchive) archive="yes"
+  ;;
+  --disable-mytharchive) archive="no"
+  ;;
+  --enable-mythmusic) music="yes"
+  ;;
+  --disable-mythmusic) music="no"
+  ;;
+  --enable-mythvideo) video="yes"
+  ;;
+  --disable-mythvideo) video="no"
+  ;;
+  --enable-mythweather) weather="yes"
+  ;;
+  --disable-mythweather) weather="no"
+  ;;
+  --enable-mythgallery) gallery="yes"
+  ;;
+  --disable-mythgallery) gallery="no"
+  ;;
+  --enable-mythgame) game="yes"
+  ;;
+  --disable-mythgame) game="no"
+  ;;
+  --enable-mythnews) news="yes"
+  ;;
+  --disable-mythnews) news="no"
+  ;;
+  --enable-mythbrowser) browser="yes"
+  ;;
+  --disable-mythbrowser) browser="no"
+  ;;
+  --enable-mythzoneminder) zoneminder="yes"
+  ;;
+  --disable-mythzoneminder) zoneminder="no"
+  ;;
+  --enable-mythmovies) movies="yes"
+  ;;
+  --disable-mythmovies) movies="no"
+  ;;
+  --enable-opengl) opengl="yes"
+  ;;
+  --disable-opengl) opengl="no"
+  ;;
+  --enable-libvisual) visual="yes"
+  ;;
+  --disable-libvisual) visual="no"
+  ;;
+  --enable-fftw) fftw_lib="yes"
+                 fftw_lib3="yes"
+  ;;
+  --disable-fftw) fftw_lib="no"
+                  fftw_lib3="no"
+  ;;
+  --enable-sdl) sdl="yes"
+  ;;
+  --disable-sdl) sdl="no"
+  ;;
+  --enable-exif) exif="yes"
+  ;;
+  --enable-new-exif)  newexif="yes"
+                      exif="yes"
+  ;;
+  --disable-new-exif) newexif="no"
+  ;;
+  --disable-exif) exif="no"
+  ;;
+  --enable-festival) festival="yes"
+  ;;
+  --disable-festival) festival="no"
+  ;;
+  --enable-all)  music="yes";
+                 video="yes";
+                 weather="yes";
+                 gallery="yes";
+                 game="yes";
+                 news="yes";
+                 browser="yes";
+                 zoneminder="yes";
+                 flix="yes";
+                 movies="yes";
+                 sdl="yes";
+                 opengl="yes";
+                 visual="yes";
+                 fftw_lib="yes";
+                 fftw_lib3="yes";
+                 exif="yes";
+                 festival="yes";
+                 archive="yes";
+  ;;
+  --disable-all) music="no";
+                 video="no";
+                 weather="no";
+                 gallery="no";
+                 game="no";
+                 news="no";
+                 browser="no";
+                 zoneminder="no";
+                 flix="no";
+                 movies="no";
+                 sdl="no";
+                 opengl="no";
+                 visual="no";
+                 fftw_lib="no";
+                 fftw_lib3="no";
+                 exif="no";
+                 festival="no";
+                 archive="no";
+  esac
+done
+
+# set temporary file name
+if test ! -z "$TMPDIR" ; then
+    TMPDIR1="${TMPDIR}"
+elif test ! -z "$TEMPDIR" ; then
+    TMPDIR1="${TEMPDIR}"
+else
+    TMPDIR1="/tmp"
+fi
+
+TMPC="${TMPDIR1}/myth-comp-${RANDOM}-$$-${RANDOM}.c"
+TMPE="${TMPDIR1}/myth-conf-${RANDOM}-$$-${RANDOM}"
+
+
+has_library()
+{
+    if test -f /etc/ld.so.conf ; then
+        LIBPATHS=`cat /etc/ld.so.conf | grep -v "#" | grep -v "include"`
+    else
+        LIBPATHS=''
+    fi
+
+    LIBPATHS="$LIBPATHS `echo $LD_LIBRARY_PATH | sed s/':'/' '/g` "
+    # Mac OS X has a different variable for this:
+    LIBPATHS="$LIBPATHS `echo $DYLD_LIBRARY_PATH | sed s/':'/' '/g` "
+
+    # recurse down just one level, should be enough in most cases
+    if test -f /etc/ld.so.conf ; then
+        INCL=`cat /etc/ld.so.conf | grep -v "#" | grep  "^include"`
+        SRCH=`echo "$INCL" | sed '{ s/^include \//\//; s/^include /\/etc\//}'`
+        for x in $SRCH ; do
+            LP_APPEND=`cat $x | grep -v "#" | grep -v "^include"`
+            LIBPATHS="$LIBPATHS $LP_APPEND"
+        done
+    fi
+
+    LIBPATHS="`echo $LIBPATHS $sysroot$prefix/$libdir_name $sysroot/$libdir_name $sysroot/usr/$libdir_name $sysroot/usr/local/$libdir_name $sysroot/usr/X11R6/$libdir_name | sed s/'\/ '/' '/g` "
+
+    HAS_IT="no"
+    for LIBPATH in $LIBPATHS ; do
+        if test x`ls $LIBPATH/$1* 2> /dev/null | head -n 1` != x"" ; then
+            HAS_IT="yes"
+        fi
+    done
+    expr $HAS_IT : "yes" > /dev/null
+}
+
+has_header()
+{
+    HPATHS="$sysroot$prefix/include $sysroot/usr/local/include $sysroot/usr/include $sysroot/usr/include/g++-v3 $sysroot/usr/X11R6/include $sysroot/"
+    INCL=`echo $DYLD_LIBRARY_PATH $LD_LIBRARY_PATH | sed s/':'/' '/g`
+    HPATHS="$HPATHS `echo $INCL | sed s/$libdir_name/include/g` "
+
+    HAS_IT="no"
+    for HPATH in $HPATHS ; do
+        if test x`ls $HPATH/$1* 2> /dev/null | head -n 1` != x"" ; then
+            HAS_IT="yes"
+        fi
+    done
+    expr $HAS_IT : "yes" > /dev/null
+}
+
+is_qmake4()
+{
+    $1 --version 2>&1 | grep -q "Qt version 4"
+}
+
+if ! is_qmake4 $qmake; then
+    if is_qmake4 qmake-qt4; then
+        qmake=qmake-qt4
+    else
+        echo "qmake for Qt4 not found. Please specify the correct qmake with --qmake="
+        exit 1
+    fi
+fi
+
+if test "$opengl" != "no" ; then
+    opengl="no"
+    if has_library libGL ; then
+        opengl="yes"
+    fi
+    if test -f $sysroot/System/Library/Frameworks/AGL.framework/Versions/A/AGL ; then
+        opengl="yes"
+    fi
+fi
+
+if test "$visual" != "no" ; then
+    visual="no"
+    if has_library libvisual-0.4 ; then
+        if has_header libvisual-0.4/libvisual/libvisual.h ; then
+            visual="yes"
+        fi
+    fi
+fi
+
+if test "$fftw_lib3" != "no" ; then
+    fftw_lib3="no"
+    if has_library libfftw3f_threads ; then
+        if has_library libfftw3_threads ; then
+            if has_header fftw3.h ; then
+                fftw_lib3="yes"
+            fi
+        fi
+    fi
+fi
+
+if test "$fftw_lib" != "no" ; then
+    fftw_lib="no"
+    if has_library libfftw ; then
+        if has_library librfftw ; then
+            if has_header fftw.h ; then
+                fftw_lib="yes"
+            fi
+        fi
+    fi
+fi
+
+if test "$sdl" != "no" ; then
+    sdl="no"
+    if test x`which sdl-config` != x ; then
+        sdl="yes"
+    fi
+fi
+
+if test "$exif" != "no" ; then
+    exif="no"
+    if has_library libexif ; then
+        if has_header libexif/exif-data.h ; then
+            exif="yes"
+        fi
+    fi
+fi
+
+if test "$music" != "no" ; then
+    vorbis="no"
+    if has_header ogg/ogg.h && has_header vorbis/vorbisenc.h && has_header vorbis/vorbisfile.h && has_header vorbis/codec.h && has_library libogg && has_library libvorbisfile && has_library libvorbisenc && has_library libvorbis ; then
+        vorbis="yes"
+    else
+        echo "MythMusic requires vorbis."
+    fi
+
+    flac="no"
+    if has_header FLAC/all.h && has_library libFLAC ; then
+        flac="yes"
+    else
+        echo "MythMusic requires FLAC."
+    fi
+
+    cdaudio="no"
+    if has_header cdaudio.h && has_library libcdaudio ; then
+        cdaudio="yes"
+    fi
+
+    if test "$cdaudio" = "no" -a "$targetos" != "Darwin"; then
+        echo "MythMusic requires libcdaudio."
+    fi
+
+    paranoia="no"
+    if has_library libcdda_paranoia && has_library libcdda_interface ; then
+        if has_header cdda_paranoia.h ; then
+            paranoia="yes"
+        fi
+        if has_header cdda/cdda_paranoia.h ; then
+            paranoia="yes"
+        fi
+    fi
+
+    if test "$paranoia" = "no" -a "$targetos" != "Darwin" -a \
+                                  "`echo ${targetos} | cut -c1-5`" != "MINGW"; then
+        echo "MythMusic requires CDDA Paranoia."
+    fi
+
+    mp3lame="no"
+    if has_header lame/lame.h && has_library libmp3lame ; then
+        mp3lame="yes"
+    else
+        echo "MythMusic requires the LAME mp3 encoder."
+    fi
+
+    taglib="no"
+    if test x`which taglib-config` != x"" ; then
+        taglib_minor=`taglib-config --version | cut -d. -f2`
+        if test x"$taglib_minor" = x"" ; then
+            echo "Can't find taglib-config. Assuming 1.5 or later."
+            taglib_minor="5"
+        fi
+    fi
+
+    if has_library libtag && has_header taglib/fileref.h && test $taglib_minor -ge 5 ; then
+        taglib="yes"
+    else
+        echo "MythMusic requires taglib 1.5 or later."
+    fi
+
+    if test "$targetos" != "Darwin" -a "`echo ${targetos} | cut -c1-5`" != "MINGW" ; then
+        if test "$cdaudio" = "no" -o "$paranoia" = "no" ; then
+            cdlibs="no"
+        fi
+    fi
+
+    if test "$vorbis" = "no" -o "$flac" = "no" -o "$mp3lame" = "no" -o "$taglib" = "no" -o "$cdlibs" = "no" ; then
+        echo "Disabling MythMusic due to missing dependencies."
+        music="no"
+    fi
+fi
+
+if test "$zoneminder" != "no" ; then
+    if has_header mysql/mysql.h ; then
+         zoneminder="yes"
+    else
+        echo "Disabling MythZoneMinder. Requires mysql/mysql.h header"
+        zoneminder="no"
+    fi
+fi
+
+cat > $TMPC << EOF
+#include <stdint.h>
+int main( void ) { return 0; }
+EOF
+
+_stdint_h=no
+if $cc -o $TMPE $TMPC 2> /dev/null ; then
+  _stdint_h=yes
+fi
+
+rm -f $TMPC $TMPE
+
+###########################################################
+#                                                         #
+#  Top level mythplugin.pro file creation                 #
+#  (ie. which plugins to build)                           #
+#                                                         #
+###########################################################
+
+# bring in mythtv config
+if [ -e $sysroot$prefix/include/mythtv/mythconfig.mak ] ; then
+  rm mythconfig.mak 2> /dev/null
+  ln -s $sysroot$prefix/include/mythtv/mythconfig.mak mythconfig.mak
+else
+  echo "ERROR: mythconfig.mak not found at $sysroot$prefix/include/mythtv/mythconfig.mak"
+  echo "Did you make AND install MythTV first?"
+  echo "Are you using the correct prefix ($prefix) and sysroot ($sysroot)?"
+  echo "Bailing out!!"
+  exit
+fi
+
+echo ""
+echo "Configuration settings: "
+echo " "
+echo "        qmake          $(which $qmake)"
+echo " "
+
+echo "#" > ./config.pro
+echo "#    Automatically generated by mythplugin configure" >> ./config.pro
+echo "#    (manual modifications will be overwritten)" >> ./config.pro
+echo "#" >> ./config.pro
+
+if test "$archive" = "yes" ; then
+  echo "        MythArchive    plugin will be built"
+  echo "SUBDIRS += mytharchive" >> ./config.pro
+else
+  echo "        MythArchive    plugin will not be built"
+fi
+
+if test "$browser" = "yes" ; then
+  echo "        MythBrowser    plugin will be built"
+  echo "SUBDIRS += mythbrowser" >> ./config.pro
+else
+  echo "        MythBrowser    plugin will not be built"
+fi
+
+if test "$gallery" = "yes" ; then
+  echo "        MythGallery    plugin will be built"
+  echo "SUBDIRS += mythgallery" >> ./config.pro
+else
+  echo "        MythGallery    plugin will not be built"
+fi
+
+if test "$game" = "yes" ; then
+  echo "        MythGame       plugin will be built"
+  echo "SUBDIRS += mythgame" >> ./config.pro
+else
+  echo "        MythGame       plugin will not be built"
+fi
+
+if test "$music" = "yes" ; then
+  echo "        MythMusic      plugin will be built"
+  echo "SUBDIRS += mythmusic" >> ./config.pro
+else
+  echo "        MythMusic      plugin will not be built"
+fi
+
+if test "$news" = "yes" ; then
+  echo "        MythNews       plugin will be built"
+  echo "SUBDIRS += mythnews" >> ./config.pro
+else
+  echo "        MythNews       plugin will not be built"
+fi
+
+if test "$video" = "yes" ; then
+  echo "        MythVideo      plugin will be built"
+  echo "SUBDIRS += mythvideo" >> ./config.pro
+else
+  echo "        MythVideo      plugin will not be built"
+fi
+
+if test "$weather" = "yes" ; then
+  echo "        MythWeather    plugin will be built"
+  echo "SUBDIRS += mythweather" >> ./config.pro
+else
+  echo "        MythWeather    plugin will not be built"
+fi
+
+if test "$zoneminder" = "yes" ; then
+  echo "        MythZoneMinder plugin will be built"
+  echo "SUBDIRS += mythzoneminder" >> ./config.pro
+else
+  echo "        MythZoneMinder plugin will not be built"
+fi
+
+if test "$svtplay" = "yes" ; then
+  echo "        MythSvtPlay     plugin will be built"
+  echo "SUBDIRS += mythsvtplay" >> ./config.pro
+else
+  echo "        MythSvtPlay     plugin will not be built"
+fi
+
+
+###########################################################
+#                                                         #
+#   MythGallery related configuration options             #
+#                                                         #
+###########################################################
+
+if test "$gallery" = "yes" ; then
+
+    echo "/*" >  ./mythgallery/mythgallery/config.h
+    echo "    Automatically generated by configure - do not modify" >> ./mythgallery/mythgallery/config.h
+    echo "*/" >> ./mythgallery/mythgallery/config.h
+
+    echo "#" > ./mythgallery/mythgallery/config.pro
+    echo "#    Automatically generated by configure - modify only under penalty of death" >> ./mythgallery/mythgallery/config.pro
+    echo "#" >> ./mythgallery/mythgallery/config.pro
+
+    if test "$opengl" = "yes" ; then
+        echo "        OpenGL         support will be included in MythGallery"
+        echo "#define OPENGL_SUPPORT 1" >> ./mythgallery/mythgallery/config.h
+        echo "CONFIG += opengl" >> ./mythgallery/mythgallery/config.pro
+        echo "HEADERS += glsingleview.h" >> ./mythgallery/mythgallery/config.pro
+        echo "SOURCES += glsingleview.cpp" >> ./mythgallery/mythgallery/config.pro
+    fi
+
+    if test "$opengl" = "no" ; then
+        echo "        OpenGL         support will not be included in MythGallery"
+    fi
+
+    if test "$exif" = "yes" ; then
+        echo "        EXIF           support will be included in MythGallery"
+        echo "#define EXIF_SUPPORT 1" >> ./mythgallery/mythgallery/config.h
+        echo "LIBS += -lexif" >> ./mythgallery/mythgallery/config.pro
+
+        if test x`which pkg-config 2>/dev/null` != x"" ; then
+            if `pkg-config --atleast-version 0.6.9 libexif` ; then
+                echo "#define NEW_LIB_EXIF 1" >> \
+                    ./mythgallery/mythgallery/config.h
+            fi
+        else
+            if test x"$newexif" = x"yes" ; then
+		echo "#define NEW_LIB_EXIF 1" >> \
+                    ./mythgallery/mythgallery/config.h
+            else
+                echo
+                echo "Could not determine libexif version, if it is greater"
+                echo "than or equal to 0.6.9 you need to add"
+                echo "--enable-new-exif to the configure flags"
+                echo
+            fi
+        fi
+    fi
+
+    if test "$exif" = "no" ; then
+        echo "        EXIF           support will not be included in MythGallery"
+    fi
+fi
+
+###########################################################
+#                                                         #
+#  MythMusic related configuration options                #
+#                                                         #
+###########################################################
+
+if test "$music" = "yes" ; then
+
+    echo "/*" >  ./mythmusic/mythmusic/config.h
+    echo "    Automatically generated by configure - do not modify" >> ./mythmusic/mythmusic/config.h
+    echo "*/" >> ./mythmusic/mythmusic/config.h
+
+    echo "#" > ./mythmusic/mythmusic/config.pro
+    echo "#    Automatically generated by configure - modify only under penalty of death" >> ./mythmusic/mythmusic/config.pro
+    echo "#" >> ./mythmusic/mythmusic/config.pro
+
+    if test "$_stdint_h" = "yes" ; then
+      echo "#define HAVE_STDINT_H 1" >> ./mythmusic/mythmusic/config.h
+    else
+      echo "#undef  HAVE_STDINT_H" >> ./mythmusic/mythmusic/config.h
+    fi
+
+    if test "$cdaudio" = "yes" ; then
+      echo "#define HAVE_CDAUDIO 1" >> ./mythmusic/mythmusic/config.h
+      echo "CONFIG += cdaudio" >> ./mythmusic/mythmusic/config.pro
+    else
+      echo "#undef  HAVE_CDAUDIO" >> ./mythmusic/mythmusic/config.h
+    fi
+
+    if test "$paranoia" = "yes" ; then
+      echo "#define HAVE_PARANOIA 1" >> ./mythmusic/mythmusic/config.h
+      echo "CONFIG += paranoia" >> ./mythmusic/mythmusic/config.pro
+    else
+      echo "#undef  HAVE_PARANOIA" >> ./mythmusic/mythmusic/config.h
+    fi
+
+    if test "$opengl" = "yes" ; then
+        echo "        OpenGL         support will be included in MythMusic"
+        echo "#define OPENGL_SUPPORT 1" >> ./mythmusic/mythmusic/config.h
+        echo "CONFIG += opengl" >> ./mythmusic/mythmusic/config.pro
+    fi
+
+    if test "$opengl" = "no" ; then
+        echo "        OpenGL         support will not be included in MythMusic"
+    fi
+
+    if test "$visual" = "yes" ; then
+        if test "$sdl" = "yes" ; then
+            echo "        libvisual      support will be included in MythMusic"
+            echo "#define LIBVISUAL_SUPPORT 1" >> ./mythmusic/mythmusic/config.h
+            echo "INCLUDEPATH += /usr/include/libvisual-0.4" >> ./mythmusic/mythmusic/config.pro
+            echo "LIBS += -lvisual-0.4" >> ./mythmusic/mythmusic/config.pro
+        else
+            echo "        libvisual      support will not be included in MythMusic (requires SDL support)"
+        fi
+    fi
+
+    if test "$visual" = "no" ; then
+        echo "        libvisual      support will not be included in MythMusic"
+    fi
+
+    if test "$fftw_lib3" = "yes" ; then
+        echo "        FFTW v.3       support will be included in MythMusic"
+        echo "#define FFTW3_SUPPORT 1" >> ./mythmusic/mythmusic/config.h
+        echo "LIBS += -lfftw3 -lm" >> \
+             ./mythmusic/mythmusic/config.pro
+    elif test "$fftw_lib" = "yes" ; then
+        echo "        FFTW v.2       support will be included in MythMusic"
+        echo "#define FFTW2_SUPPORT 1" >> ./mythmusic/mythmusic/config.h
+        echo "LIBS += -lrfftw -lfftw" >> ./mythmusic/mythmusic/config.pro
+    fi
+
+    if test "$fftw_lib" = "no" -a "$fftw_lib3" = "no" ; then
+        echo "        FFTW           support will not be included in MythMusic"
+    fi
+
+    if test "$sdl" = "yes" ; then
+        echo "        SDL            support will be included in MythMusic"
+        echo "#define SDL_SUPPORT 1" >> ./mythmusic/mythmusic/config.h
+        echo "LIBS += `sdl-config --libs`" >> ./mythmusic/mythmusic/config.pro
+        echo "QMAKE_CXXFLAGS_RELEASE += `sdl-config --cflags`" >> ./mythmusic/mythmusic/config.pro
+        echo "QMAKE_CXXFLAGS_DEBUG += `sdl-config --cflags`" >> ./mythmusic/mythmusic/config.pro
+    fi
+    if test "$sdl" = "no" ; then
+        echo "        SDL            support will not be included in MythMusic"
+    fi
+
+    if test "$taglib" = "yes" ; then
+        echo "INCLUDEPATH += `taglib-config --prefix`/include/taglib" >> ./mythmusic/mythmusic/config.pro
+    fi
+fi
+
+###########################################################
+#                                                         #
+#   An extra directory and Makefile for cleanup rules     #
+#                                                         #
+###########################################################
+
+mkdir -p cleanup
+cat << END_CLEANUP > cleanup/Makefile
+all:
+clean:
+distclean:
+install:
+qmake_all:
+	\$(NONE)
+
+# Hack to remove some empty directories that qmake doesn't create rules for
+uninstall:
+	-rmdir \$(INSTALL_ROOT)/$prefix/share/mythtv/*
+	-rmdir \$(INSTALL_ROOT)/$prefix/share/mythtv
+
+END_CLEANUP
+
+echo >> ./config.pro
+echo "# clean up for 'make uninstall'. This must be last" >> ./config.pro
+echo "SUBDIRS += cleanup " >> ./config.pro
+
+###########################################################
+
+echo ""
+
+${qmake} QMAKE=$(which ${qmake}) mythplugins.pro
