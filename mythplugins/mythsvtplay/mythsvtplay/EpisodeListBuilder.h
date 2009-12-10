@@ -5,6 +5,7 @@
 
 #include <QUrl>
 #include <QList>
+#include <QDate>
 #include <QNetworkAccessManager>
 
 class QNetworkReply;
@@ -17,13 +18,16 @@ class EpisodeListBuilder : public QObject
     Q_OBJECT
 
 public:
-    EpisodeListBuilder(const QUrl& showUrl);
+    EpisodeListBuilder();
+
+    void buildEpisodeListFromUrl(const QUrl& showUrl);
 
 public slots:
     void onDownloadFinished(QNetworkReply*);
 
 signals:
     void episodesLoaded(const QList<Episode*>& episodes);
+    void noEpisodesFound();
 
 private:
 

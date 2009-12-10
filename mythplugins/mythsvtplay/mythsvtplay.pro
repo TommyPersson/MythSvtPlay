@@ -1,4 +1,4 @@
 TEMPLATE = subdirs
 
 # Directories
-SUBDIRS = mythsvtplay
+SUBDIRS = mythsvtplay theme i18n
