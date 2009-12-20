@@ -100,15 +100,23 @@ void MainWindow::onReceiveEpisodes(QList<Episode*> episodes)
 
     for (int i = 0; i < episodes.count(); ++i)
     {
-        std::cerr << episodes.at(i)->asxUrl.toString().toStdString() << std::endl;
+        std::cerr << episodes.at(i)->mediaUrl.toString().toStdString() << std::endl;
 
 
     }
 
-    QString url = episodes.at(0)->asxUrl.toString();
+    QString url = episodes.at(0)->mediaUrl.toString();
 
     gContext->sendPlaybackStart();
-    myth_system("mplayer -playlist " + url);
+    if (episodes.at(0)->urlIsPlaylist)
+    {
+        myth_system("mplayer -fs -zoom -ao alsa -cache 8192 -playlist " + url);
+    }
+    else
+    {
+        myth_system("mplayer -fs -zoom -ao alsa -cache 8192 " + url);
+    }
+    //myth_system("vlc " + url);
     gContext->sendPlaybackEnd();
 }
 

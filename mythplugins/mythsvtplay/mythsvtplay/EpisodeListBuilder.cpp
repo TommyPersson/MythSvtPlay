@@ -17,7 +17,7 @@ QString findTitle(const QDomDocument& dom);
 QString findDescription(const QDomDocument& dom);
 QDate findPublishedDate(const QDomDocument& dom);
 QDate findAvailableUntilDate(const QDomDocument& dom);
-QUrl findAsxUrl(const QDomDocument& dom);
+QUrl findMediaUrl(const QDomDocument& dom);
 QUrl findEpisodeImageUrl(const QDomDocument& dom);
 
 EpisodeListBuilder::EpisodeListBuilder()
@@ -190,8 +190,17 @@ QList<Episode*> EpisodeListBuilder::parseEpisodeDocs(const QList<QDomDocument>& 
         episode->publishedDate = findPublishedDate(dom);
         episode->availableUntilDate = findAvailableUntilDate(dom);
 
-        episode->asxUrl = findAsxUrl(dom);
+        episode->mediaUrl = findMediaUrl(dom);
         episode->episodeImageUrl = findEpisodeImageUrl(dom);
+
+        if (episode->mediaUrl.path().contains("asx"))
+        {
+            episode->urlIsPlaylist = true;
+        }
+        else
+        {
+            episode->urlIsPlaylist = false;
+        }
 
         episodeList.push_back(episode);
     }
@@ -244,7 +253,7 @@ QDate findAvailableUntilDate(const QDomDocument& dom)
     return QDate();
 }
 
-QUrl findAsxUrl(const QDomDocument& dom)
+QUrl findMediaUrl(const QDomDocument& dom)
 {
     QDomNodeList nodes = dom.elementsByTagName("a");
 
@@ -261,7 +270,7 @@ QUrl findAsxUrl(const QDomDocument& dom)
                 QString href = nodeAttributes.namedItem("href").toAttr().value();
                 QUrl url(href);
 
-                if (url.path().contains("asx"))
+                if (url.path().contains("asx") || url.path().contains("wmv"))
                 {
                     return url;
                 }

@@ -13,7 +13,8 @@ struct Episode
     QDate publishedDate;
     QDate availableUntilDate;
 
-    QUrl asxUrl;
+    QUrl mediaUrl;
+    bool urlIsPlaylist;
     QUrl episodeImageUrl;
 };
 

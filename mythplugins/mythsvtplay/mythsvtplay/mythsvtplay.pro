@@ -18,14 +18,12 @@ QT += xml \
     network
 
 # Input
-HEADERS += HelloWindow.h \
-    MainWindow.h \
+HEADERS += MainWindow.h \
     ShowTreeBuilder.h \
     EpisodeListBuilder.h \
     Episode.h \
     Show.h
 SOURCES += main.cpp \
-    HelloWindow.cpp \
     MainWindow.cpp \
     ShowTreeBuilder.cpp \
     EpisodeListBuilder.cpp
