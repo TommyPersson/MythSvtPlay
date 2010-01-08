@@ -33,44 +33,18 @@
   <window name="program-view">
 
     <textarea name="title" from="basetextarea">
-      <area>30,30,200,200</area>
-      <value>Hello MythTV!</value>
-      <font>baselarge</font>
+      <area>0,100,100%,60</area>
+      <align>hcenter,vcenter</align>
+      <font>basetitle</font>
+      <value>View Episodes</value>
     </textarea>
 
-  
-
-    <!-- Top menu -->
-
-    <button name="home-button" from="basebutton">
-      <position>100,100</position>
-    </button>
-
-    <button name="back-button" from="basebutton">
-      <position>300,100</position>
-    </button>
-
-    <button name="current-button" from="basebutton">
-      <position>500,100</position>
-    </button>
-
-    <buttonlist name="root-list" from="basebuttonlist">
-      <area>100,200,200,200</area>
-    </buttonlist>
-
-    <buttonlist name="selectors-list" from="basebuttonlist">
-      <area>300,200,200,200</area>
-    </buttonlist>
-
-    <buttonlist name="choice-list" from="basebuttonlist">
-      <area>500,200,200,200</area>
-    </buttonlist>
-
-    <!-- Program/Clip sidebar -->
-
-    <!-- Program imagebox -->
-
-    <!-- Program infobox -->
+    <buttontree name="episode-tree">
+      <area>20%,200,80%,340</area>
+      <numlists>1</numlists>
+      <spacing>6</spacing>
+      <buttonlist name="listtemplate" from="basebuttonlist" />
+    </buttontree>
 
   </window>
 

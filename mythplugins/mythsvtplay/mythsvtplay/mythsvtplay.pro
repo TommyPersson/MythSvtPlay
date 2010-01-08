@@ -22,15 +22,17 @@ HEADERS += MainWindow.h \
     ShowTreeBuilder.h \
     EpisodeListBuilder.h \
     Episode.h \
-    Show.h
+    Program.h \
+    ProgramWindow.h \
+    MediaPlayer.h
 SOURCES += main.cpp \
     MainWindow.cpp \
     ShowTreeBuilder.cpp \
-    EpisodeListBuilder.cpp
-
+    EpisodeListBuilder.cpp \
+    ProgramWindow.cpp \
+    MediaPlayer.cpp
 QMAKE_CFLAGS += -fPIC
 QMAKE_LFlAGS += -fPIC
-
 macx:QMAKE_LFLAGS += -flat_namespace \
     -undefined \
     suppress

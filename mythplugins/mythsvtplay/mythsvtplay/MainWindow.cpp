@@ -10,28 +10,21 @@
 #include <mythtv/libmythui/mythdialogbox.h>
 
 #include "Episode.h"
+#include "Program.h"
 
 #include "ShowTreeBuilder.h"
 #include "EpisodeListBuilder.h"
+
+#include "ProgramWindow.h"
 
 MainWindow::MainWindow(MythScreenStack *parentStack)
     : MythScreenType(parentStack, "MainWindow"),
       treeBuilder_(new ShowTreeBuilder()),
       episodeListBuilder_(new EpisodeListBuilder())
 {
-}
-
-MainWindow::~MainWindow()
-{
-    delete treeBuilder_;
-}
-
-bool MainWindow::Create()
-{
     if (!LoadWindowFromXML("svtplay-ui.xml", "main", this))
     {
-        std::cerr << "Omg failed to load svtplay-ui.xml" << std::endl;
-        return false;
+        throw "Could not load svtplay-ui.xml";
     }
 
     bool err = false;
@@ -53,8 +46,11 @@ bool MainWindow::Create()
     treeBuilder_->buildTree();
 
     BuildFocusList();
+}
 
-    return true;
+MainWindow::~MainWindow()
+{
+    delete treeBuilder_;
 }
 
 void MainWindow::populateTree(MythGenericTree* tree)
@@ -105,19 +101,13 @@ void MainWindow::onReceiveEpisodes(QList<Episode*> episodes)
 
     }
 
-    QString url = episodes.at(0)->mediaUrl.toString();
+    Program program;
+    program.episodes = episodes;
 
-    gContext->sendPlaybackStart();
-    if (episodes.at(0)->urlIsPlaylist)
-    {
-        myth_system("mplayer -fs -zoom -ao alsa -cache 8192 -playlist " + url);
-    }
-    else
-    {
-        myth_system("mplayer -fs -zoom -ao alsa -cache 8192 " + url);
-    }
-    //myth_system("vlc " + url);
-    gContext->sendPlaybackEnd();
+    ProgramWindow* window = new ProgramWindow(GetScreenStack(), program);
+
+    GetScreenStack()->AddScreen(window);
+
 }
 
 void MainWindow::onNoEpisodesReceived()

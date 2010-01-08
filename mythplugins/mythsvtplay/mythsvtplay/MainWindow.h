@@ -19,7 +19,6 @@ class MainWindow : public MythScreenType
 public:
     MainWindow(MythScreenStack *parentStack);
     ~MainWindow();
-    bool Create();
 
 public slots:
     void populateTree(MythGenericTree*);

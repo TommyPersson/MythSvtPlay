@@ -4,6 +4,7 @@
 #include <QString>
 #include <QDate>
 #include <QUrl>
+#include <QMetaType>
 
 struct Episode
 {
@@ -17,5 +18,8 @@ struct Episode
     bool urlIsPlaylist;
     QUrl episodeImageUrl;
 };
+
+Q_DECLARE_METATYPE(Episode)
+Q_DECLARE_METATYPE(Episode*)
 
 #endif // EPISODE_H

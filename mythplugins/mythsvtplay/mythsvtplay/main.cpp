@@ -1,8 +1,6 @@
 #ifndef MAIN_CPP
 #define MAIN_CPP
 
-using namespace std;
-
 #include <mythtv/mythpluginapi.h>
 #include <mythtv/mythcontext.h>
 #include <mythtv/mythdbcon.h>
@@ -35,21 +33,18 @@ int mythplugin_run (void)
 {
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
-    MainWindow* window = new MainWindow(mainStack);
-
-   if (window->Create())
+    try
     {
-       mainStack->AddScreen(window);
-       return 0;
-   }
-   else
-   {
-       return -1;
-   }
+        mainStack->AddScreen(new MainWindow(mainStack));
+    }
+    catch (...)
+    {
+        return -1;
+    }
+
+    return 0;
 
 }
-
-
 
 int mythplugin_config (void)
 {
