@@ -19,14 +19,16 @@ HEADERS += MainWindow.h \
     Program.h \
     ProgramWindow.h \
     MediaPlayer.h \
-    ImageLoader.h
+    ImageLoader.h \
+    StreamDumper.h
 SOURCES += main.cpp \
     MainWindow.cpp \
     ShowTreeBuilder.cpp \
     EpisodeListBuilder.cpp \
     ProgramWindow.cpp \
     MediaPlayer.cpp \
-    ImageLoader.cpp
+    ImageLoader.cpp \
+    StreamDumper.cpp
 QMAKE_CFLAGS += -fPIC
 QMAKE_LFlAGS += -fPIC
 macx:QMAKE_LFLAGS += -flat_namespace \

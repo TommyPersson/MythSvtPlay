@@ -9,6 +9,7 @@
 class MythUIButtonTree;
 class MythUIButtonListItem;
 class MythUIBusyDialog;
+class MythUIProgressDialog;
 class MythUIImage;
 class MythUIText;
 
@@ -26,6 +27,9 @@ public:
 public slots:
     void onEpisodeSelected(MythUIButtonListItem *item);
     void onEpisodeClicked(MythUIButtonListItem *item);
+
+    void onCacheFilledPercentChange(int);
+    void onCacheFilled();
     void onFinishedPlayback();
 
 private:
@@ -46,8 +50,10 @@ private:
     MythUIText* episodeAvailableToDateText_;
 
     MythUIBusyDialog* busyDialog_;
+    MythUIProgressDialog* progressDialog_;
 
     Program* program_;
+
     MediaPlayer mediaPlayer_;
     ImageLoader imageLoader_;
 

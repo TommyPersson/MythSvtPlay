@@ -2,6 +2,13 @@
 
 #include "Program.h"
 
+#include <iostream>
+
+#include <QCoreApplication>
+
+#include <mythtv/mythcontext.h>
+#include <mythmainwindow.h>
+
 #include <mythtv/libmythui/mythprogressdialog.h>
 #include <mythtv/libmythui/mythuibuttontree.h>
 
@@ -34,6 +41,11 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
 
     QObject::connect(&mediaPlayer_, SIGNAL(finished()),
                      this, SLOT(onFinishedPlayback()));
+
+    QObject::connect(&mediaPlayer_, SIGNAL(cacheFilledPercent(int)),
+                     this, SLOT(onCacheFilledPercentChange(int)));
+    QObject::connect(&mediaPlayer_, SIGNAL(cacheFilled()),
+                     this, SLOT(onCacheFilled()));
 
     programTitleText_->SetText(program->title);
     programDescriptionText_->SetText(program->description);
@@ -78,7 +90,12 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem *item)
 
     Episode* episode = itemData.value<Episode*>();
 
-    busyDialog_ = ShowBusyPopup("Buffering episode stream ...");
+    //busyDialog_ = ShowBusyPopup("Buffering episode stream ...");
+
+    progressDialog_ = new MythUIProgressDialog("Filling stream buffer ...", GetScreenStack(), "cache-dialog");
+    progressDialog_->Create();
+    progressDialog_->SetTotal(100);
+    GetScreenStack()->AddScreen(progressDialog_);
 
     mediaPlayer_.playEpisode(episode);
 }
@@ -101,7 +118,19 @@ void ProgramWindow::onEpisodeSelected(MythUIButtonListItem *item)
     this->Refresh();
 }
 
+void ProgramWindow::onCacheFilledPercentChange(int percent)
+{
+    std::cerr << percent << std::endl;
+
+    progressDialog_->SetProgress(percent);
+}
+
+void ProgramWindow::onCacheFilled()
+{
+    progressDialog_->Close();
+    //busyDialog_->Close();
+}
+
 void ProgramWindow::onFinishedPlayback()
 {
-    busyDialog_->Close();
 }
