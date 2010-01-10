@@ -11,13 +11,18 @@ struct Episode
     QString title;
     QString description;
 
-    QDate publishedDate;
-    QDate availableUntilDate;
+    QDateTime publishedDate;
+    QString availableUntilDate;
 
     QUrl mediaUrl;
     bool urlIsPlaylist;
-    QUrl episodeImageUrl;
+    QString episodeImageFilepath;
 };
+
+bool inline episodeComparator(const Episode* left, const Episode* right)
+{
+    return left->title > right->title;
+}
 
 Q_DECLARE_METATYPE(Episode)
 Q_DECLARE_METATYPE(Episode*)

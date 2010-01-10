@@ -10,7 +10,7 @@ class MediaPlayer : public QThread
 public:
     MediaPlayer();
 
-    void loadEpisode(Episode* episode);
+    void playEpisode(Episode* episode);
     
     void run();
 

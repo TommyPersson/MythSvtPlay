@@ -27,7 +27,7 @@ private:
     void downloadXmlDocument(const QUrl& url);
     MythGenericTree* parseAlphabetic(const QByteArray& bytes);
 
-    QNetworkAccessManager manager_;
+    QNetworkAccessManager showTreeDownloader_;
     MythGenericTree* root_;
 };
 

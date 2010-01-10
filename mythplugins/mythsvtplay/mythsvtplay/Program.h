@@ -11,7 +11,7 @@ struct Program
     QString title;
     QString description;
 
-    QUrl showLogoUrl;
+    QString logoFilepath;
 
     QList<Episode*> episodes;
 };

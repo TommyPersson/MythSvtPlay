@@ -36,8 +36,8 @@ MainWindow::MainWindow(MythScreenStack *parentStack)
     QObject::connect(programTree_, SIGNAL(itemClicked(MythUIButtonListItem*)),
                      this, SLOT(onListButtonClicked(MythUIButtonListItem*)));
 
-    QObject::connect(episodeListBuilder_, SIGNAL(episodesLoaded(QList<Episode*>)),
-                     this, SLOT(onReceiveEpisodes(QList<Episode*>)));
+    QObject::connect(episodeListBuilder_, SIGNAL(episodesLoaded(Program*)),
+                     this, SLOT(onReceiveEpisodes(Program*)));
     QObject::connect(episodeListBuilder_, SIGNAL(noEpisodesFound()),
                      this, SLOT(onNoEpisodesReceived()));
 
@@ -84,30 +84,24 @@ void MainWindow::onListButtonClicked(MythUIButtonListItem *item)
 
         busyDialog_ = ShowBusyPopup("Downloading episode data ...");
 
+        episodeListBuilder_->setProgramTitle(item->GetText());
         episodeListBuilder_->buildEpisodeListFromUrl(url);
     }
-
 }
 
-void MainWindow::onReceiveEpisodes(QList<Episode*> episodes)
+void MainWindow::onReceiveEpisodes(Program* program)
 {
     if (busyDialog_)
         busyDialog_->Close();
 
-    for (int i = 0; i < episodes.count(); ++i)
+    for (int i = 0; i < program->episodes.count(); ++i)
     {
-        std::cerr << episodes.at(i)->mediaUrl.toString().toStdString() << std::endl;
-
-
+        std::cerr << program->episodes.at(i)->mediaUrl.toString().toStdString() << std::endl;
     }
-
-    Program program;
-    program.episodes = episodes;
 
     ProgramWindow* window = new ProgramWindow(GetScreenStack(), program);
 
     GetScreenStack()->AddScreen(window);
-
 }
 
 void MainWindow::onNoEpisodesReceived()

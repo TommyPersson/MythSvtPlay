@@ -9,7 +9,7 @@ class MythUIBusyDialog;
 
 class ShowTreeBuilder;
 class EpisodeListBuilder;
-class Episode;
+class Program;
 
 
 class MainWindow : public MythScreenType
@@ -23,7 +23,7 @@ public:
 public slots:
     void populateTree(MythGenericTree*);
     void onListButtonClicked(MythUIButtonListItem *item);
-    void onReceiveEpisodes(QList<Episode*>);
+    void onReceiveEpisodes(Program*);
     void onNoEpisodesReceived();
 
 private:

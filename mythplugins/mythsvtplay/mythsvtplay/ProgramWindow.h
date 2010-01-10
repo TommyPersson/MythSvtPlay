@@ -3,12 +3,16 @@
 
 #include <mythscreentype.h>
 
-#include "Program.h"
 #include "MediaPlayer.h"
+#include "ImageLoader.h"
 
 class MythUIButtonTree;
 class MythUIButtonListItem;
 class MythUIBusyDialog;
+class MythUIImage;
+class MythUIText;
+
+class Program;
 
 class ProgramWindow : public MythScreenType
 {
@@ -16,21 +20,36 @@ class ProgramWindow : public MythScreenType
 
 public:
     ProgramWindow(MythScreenStack *parentStack,
-               const Program& program);
+                  Program* program);
     ~ProgramWindow();
 
 public slots:
     void onEpisodeSelected(MythUIButtonListItem *item);
+    void onEpisodeClicked(MythUIButtonListItem *item);
     void onFinishedPlayback();
 
 private:
     void populateEpisodeList();
 
     MythUIButtonTree* episodeList_;
+
+    MythUIImage* programLogoImage_;
+    MythUIImage* episodePreviewImage_;
+
+    MythUIText* programTitleText_;
+    MythUIText* programDescriptionText_;
+
+    MythUIText* episodeTitleText_;
+    MythUIText* episodeDescriptionText_;
+
+    MythUIText* episodePublishedDateText_;
+    MythUIText* episodeAvailableToDateText_;
+
     MythUIBusyDialog* busyDialog_;
 
-    Program program_;
+    Program* program_;
     MediaPlayer mediaPlayer_;
+    ImageLoader imageLoader_;
 
 };
 

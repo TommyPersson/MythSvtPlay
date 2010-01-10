@@ -7,12 +7,6 @@ CONFIG += plugin \
 TARGET = mythsvtplay
 target.path = $${LIBDIR}/mythtv/plugins
 INSTALLS += target
-
-# uifiles.path = $${PREFIX}/share/mythtv/themes/default
-# uifiles.files = svtplay-ui.xml
-# installfiles.path = $${PREFIX}/share/mythtv
-# installfiles.files = svtplay-ui.xml
-# INSTALLS += uifiles
 QT += xml \
     sql \
     network
@@ -24,13 +18,15 @@ HEADERS += MainWindow.h \
     Episode.h \
     Program.h \
     ProgramWindow.h \
-    MediaPlayer.h
+    MediaPlayer.h \
+    ImageLoader.h
 SOURCES += main.cpp \
     MainWindow.cpp \
     ShowTreeBuilder.cpp \
     EpisodeListBuilder.cpp \
     ProgramWindow.cpp \
-    MediaPlayer.cpp
+    MediaPlayer.cpp \
+    ImageLoader.cpp
 QMAKE_CFLAGS += -fPIC
 QMAKE_LFlAGS += -fPIC
 macx:QMAKE_LFLAGS += -flat_namespace \

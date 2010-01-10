@@ -7,6 +7,7 @@
 #include <mythtv/mythversion.h>
 #include <mythtv/lcddevice.h>
 #include <mythtv/mythverbose.h>
+#include <mythtv/mythdirs.h>
 
 #include <mythtv/libmythui/mythmainwindow.h>
 #include <mythtv/libmythui/myththemedmenu.h>

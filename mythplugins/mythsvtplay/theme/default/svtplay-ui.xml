@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <mythuitheme>
 
+
+  <!-- Assuming <baseres>1280x720</baseres> -->
+
   <window name="hello">
 
     <textarea name="title" from="basetextarea">
@@ -22,9 +25,8 @@
     </textarea>
 
     <buttontree name="program-tree">
-      <area>5%,200,90%,340</area>
+      <area>80,200,1120,340</area>
       <numlists>3</numlists>
-      <spacing>6</spacing>
       <buttonlist name="listtemplate" from="basebuttonlist" />
     </buttontree>
 
@@ -32,19 +34,89 @@
 
   <window name="program-view">
 
-    <textarea name="title" from="basetextarea">
-      <area>0,100,100%,60</area>
-      <align>hcenter,vcenter</align>
+    <shape name="top-box-shape">
+      <area>0,0,1280,155</area>
+      <type>box</type>
+      <fill color="#000000" alpha="150"/>
+      <line color="#FFFFFF" alpha="0" width="0"/>
+    </shape>
+
+    <imagetype name="program-logo-image">
+      <area>100,30,168,95</area> <!-- size: 168x95 -->
+      <preserveaspect>true</preserveaspect>
+      <reflection axis="vertical" shear="20" scale="20" length="95" />
+    </imagetype>
+
+    <textarea name="program-title" from="basetextarea">
+      <area>268,30,412,95</area>
+      <align>vcenter,hcenter</align>
       <font>basetitle</font>
-      <value>View Episodes</value>
+      <value>$ProgramName</value>
     </textarea>
 
+    <textarea name="program-description">
+      <area>680,30,500,95</area>
+      <align>left,vcenter</align>
+      <font>basetitle</font>
+      <multiline>yes</multiline>
+      <value>$ProgramDescription</value>
+    </textarea>
+
+    <shape name="preview-box-shape">
+      <area>80,168,540,340</area>
+      <type>roundbox</type>
+      <fill color="#000000" alpha="150"/>
+      <line color="#FFFFFF" alpha="0" width="0"/>
+      <cornerradius>10</cornerradius>
+    </shape>
+
+    <imagetype name="episode-preview-image">
+      <area>100,188,500,300</area>
+      <preserveaspect>true</preserveaspect>
+    </imagetype>
+
+    <shape name="list-box-shape">
+      <area>660,168,540,340</area>
+      <type>roundbox</type>
+      <fill color="#000000" alpha="150"/>
+      <line color="#FFFFFF" alpha="0" width="0"/>
+      <cornerradius>10</cornerradius>
+    </shape>
+
     <buttontree name="episode-tree">
-      <area>20%,200,80%,340</area>
+      <area>680,188,500,300</area>
       <numlists>1</numlists>
-      <spacing>6</spacing>
       <buttonlist name="listtemplate" from="basebuttonlist" />
     </buttontree>
+
+    <shape name="info-box-shape">
+      <area>0,520,1280,282</area>
+      <type>box</type>
+      <fill color="#000000" alpha="150"/>
+      <line color="#FFFFFF" alpha="0" width="0"/>
+    </shape>
+
+    <textarea name="episode-title">
+      <area>100,550,500,30</area>
+      <align>top,left</align>
+      <font>basetitle</font>
+      <value>$EpisodeName</value>
+    </textarea>
+
+    <textarea name="episode-description">
+      <area>100,580,800,70</area>
+      <align>top,left</align>
+      <font>basetitle</font>
+      <multiline>yes</multiline>
+      <value>$EpisodeDescription</value>
+    </textarea>
+
+    <textarea name="episode-available-to-date">
+      <area>680,550,500,30</area>
+      <align>top,right</align>
+      <font>small</font>
+      <value>$AvailableToDate</value>
+    </textarea>
 
   </window>
 

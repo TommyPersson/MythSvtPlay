@@ -10,12 +10,12 @@ MediaPlayer::MediaPlayer()
 void MediaPlayer::run()
 {
     play();
-    //exec();
 }
 
-void MediaPlayer::loadEpisode(Episode* episode)
+void MediaPlayer::playEpisode(Episode* episode)
 {
     episode_ = episode;
+    start();
 }
 
 void MediaPlayer::play()
@@ -28,10 +28,12 @@ void MediaPlayer::play()
     gContext->sendPlaybackStart();
     if (episode_->urlIsPlaylist)
     {
+        std::cerr << "Running: mplayer -fs -zoom -ao alsa -cache 8192 -playlist " << url.toStdString() << std::endl;
         myth_system("mplayer -fs -zoom -ao alsa -cache 8192 -playlist " + url);
     }
     else
     {
+        std::cerr << "Running: mplayer -fs -zoom -ao alsa -cache 8192 " << url.toStdString() << std::endl;
         myth_system("mplayer -fs -zoom -ao alsa -cache 8192 " + url);
     }
     //myth_system("vlc " + url);

@@ -9,22 +9,41 @@
 #include <QDomNodeList>
 #include <QDomNamedNodeMap>
 
+#include <QDir>
+#include <QFile>
+
+#include <mythtv/mythdirs.h>
+
+#include "Program.h"
 #include "Episode.h"
 
 #include <iostream>
 
+QUrl findRssFeed(const QDomDocument& dom);
+QList<QUrl> findEpisodeUrls(const QDomDocument& dom);
+QList<QDateTime> findEpisodePubDates(const QDomDocument& dom);
+
 QString findTitle(const QDomDocument& dom);
 QString findDescription(const QDomDocument& dom);
-QDate findPublishedDate(const QDomDocument& dom);
-QDate findAvailableUntilDate(const QDomDocument& dom);
+QString findAvailableUntilDate(const QDomDocument& dom);
 QUrl findMediaUrl(const QDomDocument& dom);
 QUrl findEpisodeImageUrl(const QDomDocument& dom);
+
+QString findProgramCategory(const QDomDocument& dom);
+QUrl findProgramLogoUrl(const QDomDocument& dom);
 
 EpisodeListBuilder::EpisodeListBuilder()
         : state_(GET_RSS_URL)
 {
     QObject::connect(&manager_, SIGNAL(finished(QNetworkReply*)),
                      this, SLOT(onDownloadFinished(QNetworkReply*)));
+    QObject::connect(&imageDownloader_, SIGNAL(finished(QNetworkReply*)),
+                     this, SLOT(onDownloadImageFinished(QNetworkReply*)));
+}
+
+void EpisodeListBuilder::setProgramTitle(const QString& programTitle)
+{
+    programTitle_ = programTitle;
 }
 
 void EpisodeListBuilder::buildEpisodeListFromUrl(const QUrl& showUrl)
@@ -45,6 +64,24 @@ void EpisodeListBuilder::onDownloadFinished(QNetworkReply* reply)
     doDownloadFsm();
 }
 
+void EpisodeListBuilder::onDownloadImageFinished(QNetworkReply* reply)
+{
+    imageDownloadQueue_.removeOne(reply);
+
+    QUrl url = reply->url();
+    QString filename = url.path().section('/', -1);
+
+    QDir savelocation(GetConfDir() + "/mythsvtplay/images/");
+    if (!savelocation.exists())
+        savelocation.mkpath(savelocation.path());
+
+    QFile savefile(savelocation.absolutePath() + "/" + filename);
+
+    savefile.open(QIODevice::WriteOnly);
+    savefile.write(reply->readAll());
+    savefile.close();
+}
+
 void EpisodeListBuilder::doDownloadFsm()
 {
     switch(state_)
@@ -55,6 +92,12 @@ void EpisodeListBuilder::doDownloadFsm()
 
             QDomDocument doc;
             doc.setContent(reply->readAll());
+
+            // This will find the program logo on the main program page
+            programLogoUrl_ = findEpisodeImageUrl(doc);
+
+            // Likewise
+            programDescription_ = findDescription(doc);
 
             QUrl rssUrl = findRssFeed(doc);
 
@@ -80,6 +123,12 @@ void EpisodeListBuilder::doDownloadFsm()
             rssDoc.setContent(reply->readAll());
 
             QList<QUrl> urls = findEpisodeUrls(rssDoc);
+            QList<QDateTime> pubDates = findEpisodePubDates(rssDoc);
+
+            for (int i = 0; i < urls.count(); ++i)
+            {
+                episodeUrlToPubDateMap_.insert(urls.at(i), pubDates.at(i));
+            }
 
             if (urls.isEmpty())
             {
@@ -108,7 +157,8 @@ void EpisodeListBuilder::doDownloadFsm()
         {
             if (pendingReplies_.size() == 0)
             {
-                QList<QDomDocument> docs;
+                QMap<QDateTime, QDomDocument> docsMap;
+                //QList<QDomDocument> docs;
 
                 while (!readyReplies_.isEmpty())
                 {
@@ -116,21 +166,35 @@ void EpisodeListBuilder::doDownloadFsm()
 
                     QDomDocument doc;
                     doc.setContent(reply->readAll());
-                    docs.push_back(doc);
+
+                    docsMap.insert(episodeUrlToPubDateMap_.find(reply->url()).value(), doc);
+                    //docs.push_back(doc);
 
                     reply->deleteLater();
                 }
 
-                QList<Episode*> episodes = parseEpisodeDocs(docs);
+                Program* program = parseEpisodeDocs(docsMap);
 
-                emit episodesLoaded(episodes);
+                emit episodesLoaded(program);
             }
             break;
         }
     }
 }
 
-QUrl EpisodeListBuilder::findRssFeed(const QDomDocument& dom)
+void EpisodeListBuilder::downloadImage(const QUrl& url)
+{
+    QString filename = url.path().section('/', -1);
+    QFile file(GetConfDir() + "/mythsvtplay/images/" + filename);
+
+    if (file.exists())
+        return;
+
+    QNetworkReply* reply = imageDownloader_.get(QNetworkRequest(url));
+    imageDownloadQueue_.push_back(reply);
+}
+
+QUrl findRssFeed(const QDomDocument& dom)
 {
     QDomNodeList elements = dom.elementsByTagName("link");
 
@@ -152,7 +216,7 @@ QUrl EpisodeListBuilder::findRssFeed(const QDomDocument& dom)
     return QUrl("");
 }
 
-QList<QUrl> EpisodeListBuilder::findEpisodeUrls(const QDomDocument& dom)
+QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
 {
 
     QDomNodeList elements = dom.elementsByTagName("link");
@@ -173,25 +237,71 @@ QList<QUrl> EpisodeListBuilder::findEpisodeUrls(const QDomDocument& dom)
     return urlList;
 }
 
-QList<Episode*> EpisodeListBuilder::parseEpisodeDocs(const QList<QDomDocument>& doms)
+QList<QDateTime> findEpisodePubDates(const QDomDocument& dom)
+{
+
+    QDomNodeList elements = dom.elementsByTagName("pubDate");
+
+    std::cerr << "So far?" << std::endl;
+
+    QList<QDateTime> dateList;
+
+    bool firstIteration = true;
+    for (int i = 0; i < elements.count(); ++i)
+    {
+        // disregard the first date, it's for the entire feed
+        if (firstIteration)
+        {
+            firstIteration = false;
+            continue;
+        }
+
+        QString dateString(elements.at(i).toElement().text());
+
+        std::cerr << dateString.toStdString() << std::endl;
+
+        // Ex: Thu, 07 Jan 2010 18:30:00 GMT
+        QDateTime date = QDateTime::fromString(dateString, "ddd, dd MMM yyyy hh:mm:ss 'GMT'");
+
+        std::cerr << date.toString().toStdString() << std::endl;
+
+        dateList.push_back(date);
+    }
+
+    std::cerr << "So far?" << std::endl;
+    return dateList;
+}
+
+Program* EpisodeListBuilder::parseEpisodeDocs(const QMap<QDateTime, QDomDocument>& doms)
 {
     QList<Episode*> episodeList;
 
-    for (int i = 0; i < doms.count(); ++i)
-    {
-        QDomDocument dom = doms.at(i);
-        Episode* episode = new Episode;
 
-        std::cerr << "is here!" << std::endl;
+    QMapIterator<QDateTime, QDomDocument> i(doms);
+    while (i.hasNext())
+    {
+        i.next();
+
+        QDomDocument dom = i.value();
+
+        Episode* episode = new Episode;
 
         episode->title = findTitle(dom);
         episode->description = findDescription(dom);
 
-        episode->publishedDate = findPublishedDate(dom);
-        episode->availableUntilDate = findAvailableUntilDate(dom);
+        if (episode->description.simplified() == "")
+        {
+            episode->description = "Ingen beskrivning tillgänglig.";
+        }
+
+        episode->publishedDate = i.key();
+        episode->availableUntilDate = QString::fromUtf8("Tillgänglig t.o.m. ") + findAvailableUntilDate(dom) + ".";
 
         episode->mediaUrl = findMediaUrl(dom);
-        episode->episodeImageUrl = findEpisodeImageUrl(dom);
+
+        QUrl episodeImageUrl = findEpisodeImageUrl(dom);
+        downloadImage(episodeImageUrl);
+        episode->episodeImageFilepath = GetConfDir() + "/mythsvtplay/images/" + episodeImageUrl.path().section('/', -1);
 
         if (episode->mediaUrl.path().contains("asx"))
         {
@@ -202,10 +312,19 @@ QList<Episode*> EpisodeListBuilder::parseEpisodeDocs(const QList<QDomDocument>& 
             episode->urlIsPlaylist = false;
         }
 
-        episodeList.push_back(episode);
+        episodeList.push_front(episode);
     }
 
-    return episodeList;
+    downloadImage(programLogoUrl_);
+
+    Program* program = new Program();
+
+    program->episodes = episodeList;
+    program->logoFilepath = GetConfDir() + "/mythsvtplay/images/" + programLogoUrl_.path().section('/', -1);
+    program->title = programTitle_;
+    program->description = programDescription_;
+
+    return program;
 }
 
 QString findTitle(const QDomDocument& dom)
@@ -243,14 +362,31 @@ QString findDescription(const QDomDocument& dom)
     return "";
 }
 
-QDate findPublishedDate(const QDomDocument& dom)
+QString findAvailableUntilDate(const QDomDocument& dom)
 {
-    return QDate();
-}
+    QDomNodeList nodes = dom.elementsByTagName("span");
 
-QDate findAvailableUntilDate(const QDomDocument& dom)
-{
-    return QDate();
+    for (int i = 0; i < nodes.count(); ++i)
+    {
+        QDomElement node = nodes.at(i).toElement();
+        QDomNamedNodeMap nodeAttributes = node.attributes();
+
+        if (nodeAttributes.contains("class"))
+        {
+            QString classValue = nodeAttributes.namedItem("class").toAttr().value();
+
+            if (classValue == "rights")
+            {
+
+                QDomNodeList rightsNodes = node.elementsByTagName("em");
+
+                QString date = rightsNodes.at(0).toElement().text();
+                return date;
+            }
+        }
+    }
+
+    return "";
 }
 
 QUrl findMediaUrl(const QDomDocument& dom)
@@ -283,5 +419,27 @@ QUrl findMediaUrl(const QDomDocument& dom)
 
 QUrl findEpisodeImageUrl(const QDomDocument& dom)
 {
+    QDomNodeList nodes = dom.elementsByTagName("link");
+
+    for (int i = 0; i < nodes.count(); ++i)
+    {
+        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
+
+        if (nodeAttributes.contains("rel"))
+        {
+            if (nodeAttributes.namedItem("rel").toAttr().value() == "image_src")
+            {
+                QString imageUrl = nodeAttributes.namedItem("href").toAttr().value();
+                imageUrl.replace("thumb","start");
+                return QUrl(imageUrl);
+            }
+        }
+    }
+
     return QUrl("");
+}
+
+QString findProgramCategory(const QDomDocument& dom)
+{
+    return "";
 }
