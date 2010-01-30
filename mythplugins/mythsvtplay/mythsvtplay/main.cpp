@@ -13,8 +13,6 @@
 #include <mythtv/libmythui/myththemedmenu.h>
 #include <mythtv/libmythui/mythuihelper.h>
 
-//#include "mythsvtplay.h"
-
 #include <MainWindow.h>
 
 int mythplugin_init(const char *libversion)
@@ -44,7 +42,6 @@ int mythplugin_run (void)
     }
 
     return 0;
-
 }
 
 int mythplugin_config (void)

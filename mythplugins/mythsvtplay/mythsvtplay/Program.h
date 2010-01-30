@@ -10,6 +10,7 @@ struct Program
 {
     QString title;
     QString description;
+    QString category;
 
     QString logoFilepath;
 

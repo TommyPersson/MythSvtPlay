@@ -6,8 +6,7 @@
 #include <mythtv/libmythui/mythsystem.h>
 #include <mythmainwindow.h>
 
-
-MediaPlayerWorker::MediaPlayerWorker(QObject* parent)
+MediaPlayerWorker::MediaPlayerWorker()
 {
     QObject::connect(&cacheCheckTimer_, SIGNAL(timeout()),
                      this, SLOT(onCacheLookUpNeeded()));
@@ -17,22 +16,17 @@ MediaPlayerWorker::MediaPlayerWorker(QObject* parent)
 
 void MediaPlayerWorker::playEpisode(Episode* episode)
 {
-    //std::cerr << "MediaPlayerWorker::playEpisode" << std::endl;
-
     if (episode == NULL)
         return;
 
+    dumper_.setCacheSize(1600000);
     dumper_.dump(episode->mediaUrl, episode->urlIsPlaylist);
 
-    cacheCheckTimer_.start(200);
-
-    std::cerr << "Timer started?" << std::endl;
+    cacheCheckTimer_.start(100);
 }
 
 void MediaPlayerWorker::onCacheLookUpNeeded()
 {
-    //std::cerr << "MediaPlayerWorker::onCacheLookUpNeeded" << std::endl;
-
     int percent = (int) (dumper_.cacheFillRatio() * 100);
 
     if (percent >= 100)
@@ -48,13 +42,12 @@ void MediaPlayerWorker::onCacheLookUpNeeded()
 
 void MediaPlayerWorker::onCacheFilled()
 {
-    //std::cerr << "MediaPlayerWorker::onCacheFilled" << std::endl;
-
     gContext->sendPlaybackStart();
 
-    //myth_system("mplayer -fs -zoom -ao alsa " + StreamDumper::getDumpFilepath());
+    myth_system("mplayer -fs -zoom -ao alsa -really-quiet " + StreamDumper::getDumpFilepath());
 
-    gContext->GetMainWindow()->HandleMedia("Internal", StreamDumper::getDumpFilepath());
+    // Internal player is broken on partially downloaded wmv:s, transcoding is needed.
+    //gContext->GetMainWindow()->HandleMedia("Internal", StreamDumper::getDumpFilepath(), "plot", "title");
 
     gContext->sendPlaybackEnd();
 
@@ -70,9 +63,7 @@ MediaPlayer::MediaPlayer()
 
 void MediaPlayer::run()
 {
-    std::cerr << "MediaPlayer::run()" << std::endl;
-
-    MediaPlayerWorker worker(this);
+    MediaPlayerWorker worker;
 
     QObject::connect(&worker, SIGNAL(cacheFilledPercent(int)),
                      this, SLOT(onCacheFilledPercentChange(int)));
@@ -94,22 +85,15 @@ void MediaPlayer::playEpisode(Episode* episode)
 
 void MediaPlayer::onCacheFilledPercentChange(int percent)
 {
-    //std::cerr << "MediaPlayer::onCacheFilledPercentChange" << std::endl;
     emit cacheFilledPercent(percent);
-
-    QCoreApplication::processEvents();
 }
 
 void MediaPlayer::onCacheFilled()
 {
-    //std::cerr << "MediaPlayer::onCacheFilled" << std::endl;
     emit cacheFilled();
-
-    QCoreApplication::processEvents();
 }
 
 void MediaPlayer::onPlaybackFinished()
 {
-    //std::cerr << "MediaPlayer::onPlaybackFinished" << std::endl;
     quit();
 }

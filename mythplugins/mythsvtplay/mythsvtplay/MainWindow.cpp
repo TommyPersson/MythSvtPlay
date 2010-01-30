@@ -57,7 +57,7 @@ void MainWindow::populateTree(MythGenericTree* tree)
 {
     if (!tree)
     {
-        std::cerr << "Null tree :(" << std::endl;
+        std::cerr << "Unable to populate tree" << std::endl;
     }
     else
     {
@@ -78,8 +78,6 @@ void MainWindow::onListButtonClicked(MythUIButtonListItem *item)
     {
         QString data = itemData.toString();
 
-        std::cerr << data.toStdString() << std::endl;
-
         QUrl url("http://svtplay.se" + data);
 
         busyDialog_ = ShowBusyPopup("Downloading episode data ...");
@@ -94,13 +92,7 @@ void MainWindow::onReceiveEpisodes(Program* program)
     if (busyDialog_)
         busyDialog_->Close();
 
-    for (int i = 0; i < program->episodes.count(); ++i)
-    {
-        std::cerr << program->episodes.at(i)->mediaUrl.toString().toStdString() << std::endl;
-    }
-
     ProgramWindow* window = new ProgramWindow(GetScreenStack(), program);
-
     GetScreenStack()->AddScreen(window);
 }
 

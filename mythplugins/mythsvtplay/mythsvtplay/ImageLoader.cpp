@@ -4,8 +4,6 @@
 
 #include <mythuiimage.h>
 
-#include <iostream>
-
 ImageLoader::ImageLoader()
 {}
 
@@ -35,6 +33,8 @@ void ImageLoader::run()
             sleep(1);
         }
 
-        image->Load();
+        setTerminationEnabled(false);
+        emit imageReady(image);
+        setTerminationEnabled(true);
     }
 }

@@ -1,6 +1,7 @@
 #ifndef STREAMDUMPER_H
 #define STREAMDUMPER_H
 
+#include <QProcess>
 #include <QThread>
 #include <QUrl>
 
@@ -8,6 +9,8 @@
 
 class StreamDumper : public QThread
 {
+    Q_OBJECT
+
 public:
     StreamDumper();
     ~StreamDumper() {}
@@ -15,6 +18,8 @@ public:
     void dump(const QUrl& url, bool isPlaylist = false);
     double cacheFillRatio() const;
     void abort();
+
+    void setCacheSize(unsigned int cacheSize);
 
     static QString getDumpFilepath()
     {
@@ -24,8 +29,12 @@ public:
     void run();
 
 private:
+    QProcess dumpProcess_;
+    QProcess recodeProcess_;
     QUrl url_;
     bool isPlaylist_;
+
+    unsigned int cacheSize_;
 
 };
 

@@ -26,6 +26,7 @@ signals:
 private:
     void downloadXmlDocument(const QUrl& url);
     MythGenericTree* parseAlphabetic(const QByteArray& bytes);
+    MythGenericTree* reorderByCathegory(const MythGenericTree* const tree);
 
     QNetworkAccessManager showTreeDownloader_;
     MythGenericTree* root_;

@@ -8,6 +8,7 @@
 
 #include <mythtv/mythcontext.h>
 #include <mythmainwindow.h>
+#include <mythdialogbox.h>
 
 #include <mythtv/libmythui/mythprogressdialog.h>
 #include <mythtv/libmythui/mythuibuttontree.h>
@@ -47,6 +48,9 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     QObject::connect(&mediaPlayer_, SIGNAL(cacheFilled()),
                      this, SLOT(onCacheFilled()));
 
+    QObject::connect(&imageLoader_, SIGNAL(imageReady(MythUIImage*)),
+                     this, SLOT(onImageReady(MythUIImage*)));
+
     programTitleText_->SetText(program->title);
     programDescriptionText_->SetText(program->description);
 
@@ -62,7 +66,8 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
 
 ProgramWindow::~ProgramWindow()
 {
-
+    imageLoader_.terminate();
+    imageLoader_.wait();
 }
 
 void ProgramWindow::populateEpisodeList()
@@ -90,7 +95,13 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem *item)
 
     Episode* episode = itemData.value<Episode*>();
 
-    //busyDialog_ = ShowBusyPopup("Buffering episode stream ...");
+    if (episode->mediaUrl.isEmpty())
+    {
+        noStreamFoundDialog_ = new MythConfirmationDialog(GetScreenStack(), "Sorry, no suitable stream found.", false);
+        noStreamFoundDialog_->Create();
+        GetScreenStack()->AddScreen(noStreamFoundDialog_);
+        return;
+    }
 
     progressDialog_ = new MythUIProgressDialog("Filling stream buffer ...", GetScreenStack(), "cache-dialog");
     progressDialog_->Create();
@@ -118,17 +129,19 @@ void ProgramWindow::onEpisodeSelected(MythUIButtonListItem *item)
     this->Refresh();
 }
 
+void ProgramWindow::onImageReady(MythUIImage* image)
+{
+    image->Load();
+}
+
 void ProgramWindow::onCacheFilledPercentChange(int percent)
 {
-    std::cerr << percent << std::endl;
-
     progressDialog_->SetProgress(percent);
 }
 
 void ProgramWindow::onCacheFilled()
 {
     progressDialog_->Close();
-    //busyDialog_->Close();
 }
 
 void ProgramWindow::onFinishedPlayback()

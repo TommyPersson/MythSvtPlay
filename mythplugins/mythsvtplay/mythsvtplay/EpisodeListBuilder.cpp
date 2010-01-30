@@ -80,6 +80,8 @@ void EpisodeListBuilder::onDownloadImageFinished(QNetworkReply* reply)
     savefile.open(QIODevice::WriteOnly);
     savefile.write(reply->readAll());
     savefile.close();
+
+    reply->deleteLater();
 }
 
 void EpisodeListBuilder::doDownloadFsm()
@@ -98,12 +100,12 @@ void EpisodeListBuilder::doDownloadFsm()
 
             // Likewise
             programDescription_ = findDescription(doc);
+            programCategory_ = findProgramCategory(doc);
 
             QUrl rssUrl = findRssFeed(doc);
 
             if (!rssUrl.isValid())
             {
-                std::cerr << "The RSS-link was invalid :(" << std::endl;
                 reply->deleteLater();
                 return;
             }
@@ -157,8 +159,7 @@ void EpisodeListBuilder::doDownloadFsm()
         {
             if (pendingReplies_.size() == 0)
             {
-                QMap<QDateTime, QDomDocument> docsMap;
-                //QList<QDomDocument> docs;
+                QMultiMap<QDateTime, QDomDocument> docs;
 
                 while (!readyReplies_.isEmpty())
                 {
@@ -167,13 +168,12 @@ void EpisodeListBuilder::doDownloadFsm()
                     QDomDocument doc;
                     doc.setContent(reply->readAll());
 
-                    docsMap.insert(episodeUrlToPubDateMap_.find(reply->url()).value(), doc);
-                    //docs.push_back(doc);
+                    docs.insert(episodeUrlToPubDateMap_.find(reply->url()).value(), doc);
 
                     reply->deleteLater();
                 }
 
-                Program* program = parseEpisodeDocs(docsMap);
+                Program* program = parseEpisodeDocs(docs);
 
                 emit episodesLoaded(program);
             }
@@ -242,8 +242,6 @@ QList<QDateTime> findEpisodePubDates(const QDomDocument& dom)
 
     QDomNodeList elements = dom.elementsByTagName("pubDate");
 
-    std::cerr << "So far?" << std::endl;
-
     QList<QDateTime> dateList;
 
     bool firstIteration = true;
@@ -258,21 +256,16 @@ QList<QDateTime> findEpisodePubDates(const QDomDocument& dom)
 
         QString dateString(elements.at(i).toElement().text());
 
-        std::cerr << dateString.toStdString() << std::endl;
-
         // Ex: Thu, 07 Jan 2010 18:30:00 GMT
         QDateTime date = QDateTime::fromString(dateString, "ddd, dd MMM yyyy hh:mm:ss 'GMT'");
-
-        std::cerr << date.toString().toStdString() << std::endl;
 
         dateList.push_back(date);
     }
 
-    std::cerr << "So far?" << std::endl;
     return dateList;
 }
 
-Program* EpisodeListBuilder::parseEpisodeDocs(const QMap<QDateTime, QDomDocument>& doms)
+Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDocument>& doms)
 {
     QList<Episode*> episodeList;
 
@@ -303,7 +296,8 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMap<QDateTime, QDomDocument
         downloadImage(episodeImageUrl);
         episode->episodeImageFilepath = GetConfDir() + "/mythsvtplay/images/" + episodeImageUrl.path().section('/', -1);
 
-        if (episode->mediaUrl.path().contains("asx"))
+        if (episode->mediaUrl.path().contains("asx") ||
+            episode->mediaUrl.toString().contains("geoip"))
         {
             episode->urlIsPlaylist = true;
         }
@@ -323,6 +317,7 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMap<QDateTime, QDomDocument
     program->logoFilepath = GetConfDir() + "/mythsvtplay/images/" + programLogoUrl_.path().section('/', -1);
     program->title = programTitle_;
     program->description = programDescription_;
+    program->category = programCategory_;
 
     return program;
 }
@@ -377,7 +372,6 @@ QString findAvailableUntilDate(const QDomDocument& dom)
 
             if (classValue == "rights")
             {
-
                 QDomNodeList rightsNodes = node.elementsByTagName("em");
 
                 QString date = rightsNodes.at(0).toElement().text();
@@ -406,7 +400,7 @@ QUrl findMediaUrl(const QDomDocument& dom)
                 QString href = nodeAttributes.namedItem("href").toAttr().value();
                 QUrl url(href);
 
-                if (url.path().contains("asx") || url.path().contains("wmv"))
+                if (url.toString().contains("asx") || url.toString().contains("wmv"))
                 {
                     return url;
                 }
@@ -441,5 +435,27 @@ QUrl findEpisodeImageUrl(const QDomDocument& dom)
 
 QString findProgramCategory(const QDomDocument& dom)
 {
+    QDomNodeList nodes = dom.elementsByTagName("span");
+
+    for (int i = 0; i < nodes.count(); ++i)
+    {
+        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
+
+        if (nodeAttributes.contains("class"))
+        {
+            QString classValue = nodeAttributes.namedItem("class").toAttr().value();
+
+            if (classValue == "category")
+            {
+                QDomElement elem = nodes.at(i).toElement();
+
+                QString wholeText = elem.text();
+                QString category = wholeText.remove("Kategori:").simplified();
+
+                return category;
+            }
+        }
+    }
+
     return "";
 }

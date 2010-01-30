@@ -10,6 +10,7 @@ class MythUIButtonTree;
 class MythUIButtonListItem;
 class MythUIBusyDialog;
 class MythUIProgressDialog;
+class MythConfirmationDialog;
 class MythUIImage;
 class MythUIText;
 
@@ -25,12 +26,14 @@ public:
     ~ProgramWindow();
 
 public slots:
-    void onEpisodeSelected(MythUIButtonListItem *item);
-    void onEpisodeClicked(MythUIButtonListItem *item);
+    void onEpisodeSelected(MythUIButtonListItem*);
+    void onEpisodeClicked(MythUIButtonListItem*);
 
     void onCacheFilledPercentChange(int);
     void onCacheFilled();
     void onFinishedPlayback();
+
+    void onImageReady(MythUIImage*);
 
 private:
     void populateEpisodeList();
@@ -51,6 +54,7 @@ private:
 
     MythUIBusyDialog* busyDialog_;
     MythUIProgressDialog* progressDialog_;
+    MythConfirmationDialog* noStreamFoundDialog_;
 
     Program* program_;
 

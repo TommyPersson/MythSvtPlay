@@ -21,6 +21,7 @@ HEADERS += MainWindow.h \
     MediaPlayer.h \
     ImageLoader.h \
     StreamDumper.h
+
 SOURCES += main.cpp \
     MainWindow.cpp \
     ShowTreeBuilder.cpp \
@@ -29,6 +30,7 @@ SOURCES += main.cpp \
     MediaPlayer.cpp \
     ImageLoader.cpp \
     StreamDumper.cpp
+
 QMAKE_CFLAGS += -fPIC
 QMAKE_LFlAGS += -fPIC
 macx:QMAKE_LFLAGS += -flat_namespace \

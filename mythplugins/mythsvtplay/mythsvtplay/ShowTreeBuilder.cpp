@@ -44,6 +44,8 @@ void ShowTreeBuilder::onDownloadFinished(QNetworkReply* reply)
     {
         MythGenericTree* cathegoryTree = new MythGenericTree(QString::fromUtf8("Kategorier"));
 
+        //MythGenericTree* cathegoryTree = reorderByCathegory(alphabeticTree);
+
         root_->addNode(cathegoryTree);
     }
 
@@ -103,4 +105,21 @@ MythGenericTree* ShowTreeBuilder::parseAlphabetic(const QByteArray& bytes)
     }
 
     return tree;
+}
+
+MythGenericTree* ShowTreeBuilder::reorderByCathegory(const MythGenericTree* const root)
+{
+    return NULL;
+    QList<MythGenericTree*>* allLetterNodes = root->getChildAt(0)->getAllChildren();
+    QList<MythGenericTree*> allProgramNodes;
+
+    for (int i = 0; i < allLetterNodes->length(); ++i)
+    {
+        allProgramNodes.append(*(allLetterNodes->at(i)->getAllChildren()));
+    }
+
+    for (int i = 0; i < allProgramNodes.length(); ++i)
+    {
+
+    }
 }

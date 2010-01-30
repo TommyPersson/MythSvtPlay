@@ -12,7 +12,7 @@ class MediaPlayerWorker : public QObject
     Q_OBJECT
 
 public:
-    MediaPlayerWorker(QObject* parent);
+    MediaPlayerWorker();
     ~MediaPlayerWorker() {};
 
     void playEpisode(Episode* episode);

@@ -3,7 +3,7 @@
 
 #include <QObject>
 
-#include <QMap>
+#include <QMultiMap>
 #include <QUrl>
 #include <QList>
 #include <QDateTime>
@@ -42,10 +42,12 @@ private:
 
     void downloadImage(const QUrl& url);
 
-    Program* parseEpisodeDocs(const QMap<QDateTime, QDomDocument>& dom);
+    Program* parseEpisodeDocs(const QMultiMap<QDateTime, QDomDocument>& dom);
 
     QString programTitle_;
+
     QString programDescription_;
+    QString programCategory_;
     QUrl programLogoUrl_;
 
     QMap<QUrl, QDateTime> episodeUrlToPubDateMap_;

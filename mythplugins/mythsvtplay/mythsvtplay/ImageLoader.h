@@ -9,12 +9,17 @@ class MythUIImage;
 
 class ImageLoader : public QThread
 {
+    Q_OBJECT
+
 public:
     ImageLoader();
 
     void loadImage(MythUIImage* image);
 
     void run();
+
+signals:
+    void imageReady(MythUIImage*);
 
 private:
     QList<MythUIImage*> images_;

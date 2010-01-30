@@ -1,21 +1,25 @@
 #include "StreamDumper.h"
 
 #include <QFile>
-
-#include <iostream>
+#include <QProcess>
 
 #include <mythtv/libmythui/mythsystem.h>
 
 StreamDumper::StreamDumper()
 {
-    moveToThread(this);
+    dumpProcess_.moveToThread(this);
+}
+
+void StreamDumper::setCacheSize(unsigned int cacheSize)
+{
+    cacheSize_ = cacheSize;
 }
 
 double StreamDumper::cacheFillRatio() const
 {
     QFile stream(getDumpFilepath());
 
-    return stream.size() / 1600000.0;
+    return stream.size() / (double) cacheSize_;
 }
 
 void StreamDumper::dump(const QUrl& url, bool isPlaylist)
@@ -23,14 +27,12 @@ void StreamDumper::dump(const QUrl& url, bool isPlaylist)
     url_ = url;
     isPlaylist_ = isPlaylist;
 
-    std::cerr << "StreamDumper::dump" << std::endl;
-
     start();
 }
 
 void StreamDumper::abort()
 {
-    myth_system("ps a | grep mplayer | grep -- \"-dumpfile " + getDumpFilepath() + "\" | cut -f1 -d\" \" | xargs kill -9");
+    dumpProcess_.kill();
 
     QFile stream(getDumpFilepath());
     stream.remove();
@@ -40,16 +42,26 @@ void StreamDumper::abort()
 
 void StreamDumper::run()
 {
-    std::cerr << "StreamDumper::run" << std::endl;
+    QStringList dumpArgs;
+    dumpArgs << "-user-agent" << "NSPlayer/8.0.0.4477"
+             << "-really-quiet"
+             << "-cache" << "8192"
+             << "-dumpstream"
+             << "-dumpfile" << getDumpFilepath();
 
     if (isPlaylist_)
     {
-        myth_system("mplayer -dumpstream -dumpfile " + getDumpFilepath() + " -cache 8192 -playlist " + url_.toString());
-    }
-    else
-    {
-        myth_system("mplayer -dumpstream -dumpfile " + getDumpFilepath() + " -cache 8192 " + url_.toString());
+        dumpArgs << "-playlist";
     }
 
-    std::cerr << "stream dump \"finished\"" << std::endl;
+    QFile stream(getDumpFilepath());
+    if (stream.exists())
+    {
+        stream.remove();
+    }
+
+    dumpArgs << url_.toString();
+
+    dumpProcess_.start("mplayer", dumpArgs);
+    dumpProcess_.waitForFinished();
 }
