@@ -19,21 +19,18 @@
 
 #include <iostream>
 
-QUrl findRssFeed(const QDomDocument& dom);
-QList<QUrl> findEpisodeUrls(const QDomDocument& dom);
-QList<QDateTime> findEpisodePubDates(const QDomDocument& dom);
+static QList<QUrl> findEpisodeUrls(const QDomDocument& dom);
+static QList<QDateTime> findEpisodePubDates(const QDomDocument& dom);
 
-QString findTitle(const QDomDocument& dom);
-QString findDescription(const QDomDocument& dom);
-QString findAvailableUntilDate(const QDomDocument& dom);
-QUrl findMediaUrl(const QDomDocument& dom);
-QUrl findEpisodeImageUrl(const QDomDocument& dom);
-
-QString findProgramCategory(const QDomDocument& dom);
-QUrl findProgramLogoUrl(const QDomDocument& dom);
+static QString findTitle(const QDomDocument& dom);
+static QString findDescription(const QDomDocument& dom);
+static QString findAvailableUntilDate(const QDomDocument& dom);
+static QUrl findMediaUrl(const QDomDocument& dom);
+static QUrl findEpisodeImageUrl(const QDomDocument& dom);
 
 EpisodeListBuilder::EpisodeListBuilder()
-        : state_(GET_RSS_URL)
+        : state_(GET_EPISODES_URLS),
+          aborted_(false)
 {
     QObject::connect(&manager_, SIGNAL(finished(QNetworkReply*)),
                      this, SLOT(onDownloadFinished(QNetworkReply*)));
@@ -41,19 +38,40 @@ EpisodeListBuilder::EpisodeListBuilder()
                      this, SLOT(onDownloadImageFinished(QNetworkReply*)));
 }
 
-void EpisodeListBuilder::setProgramTitle(const QString& programTitle)
+EpisodeListBuilder::~EpisodeListBuilder()
 {
-    programTitle_ = programTitle;
+    abort();
 }
 
-void EpisodeListBuilder::buildEpisodeListFromUrl(const QUrl& showUrl)
+void EpisodeListBuilder::buildEpisodeList(Program* program)
 {
+    program_ = program;
+
     pendingReplies_.clear();
     readyReplies_.clear();
-    state_ = GET_RSS_URL;
+    state_ = GET_EPISODES_URLS;
 
-    QNetworkReply* reply = manager_.get(QNetworkRequest(showUrl));
+    QNetworkReply* reply = manager_.get(QNetworkRequest(program->rssUrl));
     pendingReplies_.push_back(reply);
+}
+
+void EpisodeListBuilder::abort()
+{
+    aborted_ = true;
+
+    while (!pendingReplies_.isEmpty())
+    {
+        QNetworkReply* r = pendingReplies_.takeFirst();
+        r->abort();
+        r->deleteLater();
+    }
+
+    while (!readyReplies_.isEmpty())
+    {
+        QNetworkReply* r = readyReplies_.takeFirst();
+        r->abort();
+        r->deleteLater();
+    }
 }
 
 void EpisodeListBuilder::onDownloadFinished(QNetworkReply* reply)
@@ -72,8 +90,6 @@ void EpisodeListBuilder::onDownloadImageFinished(QNetworkReply* reply)
     QString filename = url.path().section('/', -1);
 
     QDir savelocation(GetConfDir() + "/mythsvtplay/images/");
-    if (!savelocation.exists())
-        savelocation.mkpath(savelocation.path());
 
     QFile savefile(savelocation.absolutePath() + "/" + filename);
 
@@ -88,35 +104,6 @@ void EpisodeListBuilder::doDownloadFsm()
 {
     switch(state_)
     {
-    case GET_RSS_URL:
-        {
-            QNetworkReply* reply = readyReplies_.takeFirst();
-
-            QDomDocument doc;
-            doc.setContent(reply->readAll());
-
-            // This will find the program logo on the main program page
-            programLogoUrl_ = findEpisodeImageUrl(doc);
-
-            // Likewise
-            programDescription_ = findDescription(doc);
-            programCategory_ = findProgramCategory(doc);
-
-            QUrl rssUrl = findRssFeed(doc);
-
-            if (!rssUrl.isValid())
-            {
-                reply->deleteLater();
-                return;
-            }
-
-            QNetworkReply* rssReply = manager_.get(QNetworkRequest(rssUrl));
-            pendingReplies_.push_back(rssReply);
-
-            reply->deleteLater();
-            state_ = GET_EPISODES_URLS;
-            break;
-        }
     case GET_EPISODES_URLS:
         {
             QNetworkReply* reply = readyReplies_.takeFirst();
@@ -125,22 +112,22 @@ void EpisodeListBuilder::doDownloadFsm()
             rssDoc.setContent(reply->readAll());
 
             QList<QUrl> urls = findEpisodeUrls(rssDoc);
+
+            if (urls.isEmpty())
+            {
+                pendingReplies_.clear();
+                reply->deleteLater();
+
+                emit this->noEpisodesFound();
+
+                return;
+            }
+
             QList<QDateTime> pubDates = findEpisodePubDates(rssDoc);
 
             for (int i = 0; i < urls.count(); ++i)
             {
                 episodeUrlToPubDateMap_.insert(urls.at(i), pubDates.at(i));
-            }
-
-            if (urls.isEmpty())
-            {
-                state_ = GET_RSS_URL;
-                pendingReplies_.clear();
-                reply->deleteLater();
-                
-                emit this->noEpisodesFound();
-                
-                return;
             }
 
             for (int i = 0; i < urls.size(); ++i)
@@ -192,28 +179,6 @@ void EpisodeListBuilder::downloadImage(const QUrl& url)
 
     QNetworkReply* reply = imageDownloader_.get(QNetworkRequest(url));
     imageDownloadQueue_.push_back(reply);
-}
-
-QUrl findRssFeed(const QDomDocument& dom)
-{
-    QDomNodeList elements = dom.elementsByTagName("link");
-
-    for (int i = 0; i < elements.count(); ++i)
-    {
-        QDomNamedNodeMap attributes = elements.at(i).attributes();
-        if (attributes.contains("rel"))
-        {
-            if (attributes.namedItem("rel").toAttr().value() == "alternate")
-            {
-                QUrl url(attributes.namedItem("href").toAttr().value());
-                if (url.queryItemValue("expression").contains("full"))
-                {
-                    return url;
-                }
-            }
-        }
-    }
-    return QUrl("");
 }
 
 QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
@@ -269,7 +234,6 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDoc
 {
     QList<Episode*> episodeList;
 
-
     QMapIterator<QDateTime, QDomDocument> i(doms);
     while (i.hasNext())
     {
@@ -309,18 +273,15 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDoc
         episodeList.push_front(episode);
     }
 
-    downloadImage(programLogoUrl_);
+    //downloadImage(programLogoUrl_);
 
-    Program* program = new Program();
+    std::cerr << "Adding episodes to program!" << std::endl;
+    program_->episodes = episodeList;
 
-    program->episodes = episodeList;
-    program->logoFilepath = GetConfDir() + "/mythsvtplay/images/" + programLogoUrl_.path().section('/', -1);
-    program->title = programTitle_;
-    program->description = programDescription_;
-    program->category = programCategory_;
-
-    return program;
+    std::cerr << "Returning program!" << std::endl;
+    return program_;
 }
+
 
 QString findTitle(const QDomDocument& dom)
 {
@@ -433,29 +394,3 @@ QUrl findEpisodeImageUrl(const QDomDocument& dom)
     return QUrl("");
 }
 
-QString findProgramCategory(const QDomDocument& dom)
-{
-    QDomNodeList nodes = dom.elementsByTagName("span");
-
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
-
-        if (nodeAttributes.contains("class"))
-        {
-            QString classValue = nodeAttributes.namedItem("class").toAttr().value();
-
-            if (classValue == "category")
-            {
-                QDomElement elem = nodes.at(i).toElement();
-
-                QString wholeText = elem.text();
-                QString category = wholeText.remove("Kategori:").simplified();
-
-                return category;
-            }
-        }
-    }
-
-    return "";
-}

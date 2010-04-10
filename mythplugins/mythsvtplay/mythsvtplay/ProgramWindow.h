@@ -14,6 +14,7 @@ class MythConfirmationDialog;
 class MythUIImage;
 class MythUIText;
 
+class ProgressDialog;
 class Program;
 
 class ProgramWindow : public MythScreenType
@@ -25,18 +26,25 @@ public:
                   Program* program);
     ~ProgramWindow();
 
+    bool keyPressEvent(QKeyEvent *event);
+
 public slots:
     void onEpisodeSelected(MythUIButtonListItem*);
     void onEpisodeClicked(MythUIButtonListItem*);
 
+    void onCancelClicked();
+
     void onCacheFilledPercentChange(int);
     void onCacheFilled();
     void onFinishedPlayback();
-
+    void onMediaFileReady(const QString&);
+    void onTimerEvent();
     void onImageReady(MythUIImage*);
 
 private:
     void populateEpisodeList();
+
+    Program* program_;
 
     MythUIButtonTree* episodeList_;
 
@@ -53,10 +61,8 @@ private:
     MythUIText* episodeAvailableToDateText_;
 
     MythUIBusyDialog* busyDialog_;
-    MythUIProgressDialog* progressDialog_;
     MythConfirmationDialog* noStreamFoundDialog_;
-
-    Program* program_;
+    ProgressDialog* progressDialog_;
 
     MediaPlayer mediaPlayer_;
     ImageLoader imageLoader_;

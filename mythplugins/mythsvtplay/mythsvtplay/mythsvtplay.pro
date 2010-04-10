@@ -13,26 +13,26 @@ QT += xml \
 
 # Input
 HEADERS += MainWindow.h \
-    ShowTreeBuilder.h \
+    ProgramListBuilder.h \
     EpisodeListBuilder.h \
     Episode.h \
     Program.h \
     ProgramWindow.h \
     MediaPlayer.h \
     ImageLoader.h \
-    StreamDumper.h
-
+    ProgressDialog.h \
+    ProgramListCache.h
 SOURCES += main.cpp \
     MainWindow.cpp \
-    ShowTreeBuilder.cpp \
+    ProgramListBuilder.cpp \
     EpisodeListBuilder.cpp \
     ProgramWindow.cpp \
     MediaPlayer.cpp \
     ImageLoader.cpp \
-    StreamDumper.cpp
+    ProgressDialog.cpp \
+    ProgramListCache.cpp \
+    Program.cpp
 
-QMAKE_CFLAGS += -fPIC
-QMAKE_LFlAGS += -fPIC
 macx:QMAKE_LFLAGS += -flat_namespace \
     -undefined \
     suppress

@@ -34,7 +34,13 @@ int mythplugin_run (void)
 
     try
     {
-        mainStack->AddScreen(new MainWindow(mainStack));
+        QDir imageDir(GetConfDir() + "/mythsvtplay/images/");
+        imageDir.mkpath(imageDir.path());
+
+        MainWindow* mainWindow = new MainWindow(mainStack);
+        mainStack->AddScreen(mainWindow);
+
+        mainWindow->beginProgramDownload();
     }
     catch (...)
     {

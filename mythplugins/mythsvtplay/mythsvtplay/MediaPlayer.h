@@ -1,38 +1,11 @@
 #ifndef MEDIAPLAYER_H
 #define MEDIAPLAYER_H
 
+#include <QProcess>
 #include <QThread>
 #include <QTimer>
 
 #include "Episode.h"
-#include "StreamDumper.h"
-
-class MediaPlayerWorker : public QObject
-{
-    Q_OBJECT
-
-public:
-    MediaPlayerWorker();
-    ~MediaPlayerWorker() {};
-
-    void playEpisode(Episode* episode);
-
-public slots:
-    void onCacheFilled();
-    void onCacheLookUpNeeded();
-
-signals:
-    void cacheFilledPercent(int percent);
-    void cacheFilled();
-    void playbackFinished();
-
-private:
-    void play();
-
-    QTimer cacheCheckTimer_;
-
-    StreamDumper dumper_;
-};
 
 class MediaPlayer : public QThread
 {
@@ -42,21 +15,31 @@ public:
     MediaPlayer();
     ~MediaPlayer() {}
 
-    void playEpisode(Episode* episode);
+    void loadEpisode(Episode* episode);
     
     void run();
 
 public slots:
-    void onCacheFilledPercentChange(int);
-    void onCacheFilled();
-    void onPlaybackFinished();
+    void onDataAvailable();
+    void onPlayerFinished(int);
+    void onDelayTimerTimeout();
 
 signals:
     void cacheFilledPercent(int percent);
     void cacheFilled();
 
 private:
+
+    enum MplayerState { FILLING_CACHE, PLAYING, CACHING, RESUMING };
+
     Episode* episode_;
+    QProcess playerProcess_;
+
+    MplayerState mplayerState_;
+
+    QTimer delayTimer_;
+
+    bool monitorCache_;
 };
 
 #endif // MEDIAPLAYER_H

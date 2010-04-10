@@ -20,10 +20,10 @@ class EpisodeListBuilder : public QObject
 
 public:
     EpisodeListBuilder();
+    ~EpisodeListBuilder();
 
-    void setProgramTitle(const QString& programTitle);
-
-    void buildEpisodeListFromUrl(const QUrl& showUrl);
+    void buildEpisodeList(Program*);
+    void abort();
 
 public slots:
     void onDownloadFinished(QNetworkReply*);
@@ -35,7 +35,7 @@ signals:
 
 private:
 
-    enum DOWNLOAD_STATE { GET_RSS_URL, GET_EPISODES_URLS, GET_EPISODE_DOCS };
+    enum DOWNLOAD_STATE { GET_EPISODES_URLS, GET_EPISODE_DOCS };
     DOWNLOAD_STATE state_;
 
     void doDownloadFsm();
@@ -44,11 +44,9 @@ private:
 
     Program* parseEpisodeDocs(const QMultiMap<QDateTime, QDomDocument>& dom);
 
-    QString programTitle_;
+    Program* program_;
 
-    QString programDescription_;
-    QString programCategory_;
-    QUrl programLogoUrl_;
+    bool aborted_;
 
     QMap<QUrl, QDateTime> episodeUrlToPubDateMap_;
 

@@ -1,21 +1,26 @@
 #include "ProgramWindow.h"
 
 #include "Program.h"
+#include "ProgressDialog.h"
 
 #include <iostream>
 
 #include <QCoreApplication>
 
-#include <mythtv/mythcontext.h>
 #include <mythmainwindow.h>
 #include <mythdialogbox.h>
 
+#include <mythtv/mythcontext.h>
+
+#include <mythtv/libmythui/mythsystem.h>
+#include <mythtv/libmythui/mythuibutton.h>
 #include <mythtv/libmythui/mythprogressdialog.h>
 #include <mythtv/libmythui/mythuibuttontree.h>
 
 ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     : MythScreenType(parentStack, "ProgramWindow"),
-      program_(program)
+      program_(program),
+      progressDialog_(NULL)
 {
     if (!LoadWindowFromXML("svtplay-ui.xml", "program-view", this))
     {
@@ -39,9 +44,6 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
                      this, SLOT(onEpisodeClicked(MythUIButtonListItem*)));
     QObject::connect(episodeList_, SIGNAL(itemSelected(MythUIButtonListItem*)),
                      this, SLOT(onEpisodeSelected(MythUIButtonListItem*)));
-
-    QObject::connect(&mediaPlayer_, SIGNAL(finished()),
-                     this, SLOT(onFinishedPlayback()));
 
     QObject::connect(&mediaPlayer_, SIGNAL(cacheFilledPercent(int)),
                      this, SLOT(onCacheFilledPercentChange(int)));
@@ -103,12 +105,14 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem *item)
         return;
     }
 
-    progressDialog_ = new MythUIProgressDialog("Filling stream buffer ...", GetScreenStack(), "cache-dialog");
-    progressDialog_->Create();
-    progressDialog_->SetTotal(100);
+    progressDialog_ = new ProgressDialog(GetScreenStack(), "cache-dialog", "Filling stream buffer ...", "0%");
+
+    QObject::connect(progressDialog_, SIGNAL(cancelClicked()),
+                     this, SLOT(onCancelClicked()));
+
     GetScreenStack()->AddScreen(progressDialog_);
 
-    mediaPlayer_.playEpisode(episode);
+    mediaPlayer_.loadEpisode(episode);
 }
 
 void ProgramWindow::onEpisodeSelected(MythUIButtonListItem *item)
@@ -129,6 +133,17 @@ void ProgramWindow::onEpisodeSelected(MythUIButtonListItem *item)
     this->Refresh();
 }
 
+void ProgramWindow::onCancelClicked()
+{
+    if (progressDialog_)
+    {
+        progressDialog_->Close();
+        progressDialog_ = NULL;
+    }
+
+    mediaPlayer_.quit();
+}
+
 void ProgramWindow::onImageReady(MythUIImage* image)
 {
     image->Load();
@@ -136,14 +151,55 @@ void ProgramWindow::onImageReady(MythUIImage* image)
 
 void ProgramWindow::onCacheFilledPercentChange(int percent)
 {
-    progressDialog_->SetProgress(percent);
+    if (progressDialog_)
+    {
+        progressDialog_->setProgress(percent);
+        progressDialog_->setStatusText(QString::number(percent) + "%");
+    }
 }
 
 void ProgramWindow::onCacheFilled()
 {
-    progressDialog_->Close();
+    if (progressDialog_)
+    {
+        progressDialog_->Close();
+        progressDialog_ = NULL;
+    }
 }
 
-void ProgramWindow::onFinishedPlayback()
+bool ProgramWindow::keyPressEvent(QKeyEvent *event)
 {
+    if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
+        return true;
+
+    bool handled = false;
+    QStringList actions;
+    handled = GetMythMainWindow()->TranslateKeyPress("ProgramWindow", event, actions);
+
+    for (int i = 0; i < actions.size() && !handled; i++)
+    {
+        QString action = actions[i];
+        handled = true;
+
+        if (action == "ESCAPE")
+        {
+            if (progressDialog_ != NULL && progressDialog_->IsVisible())
+            {
+                mediaPlayer_.quit();
+                progressDialog_->Close();
+                progressDialog_ = NULL;
+            }
+            else
+            {
+                Close();
+            }
+        }
+        else
+            handled = false;
+    }
+
+    if (!handled && MythScreenType::keyPressEvent(event))
+        handled = true;
+
+    return handled;
 }

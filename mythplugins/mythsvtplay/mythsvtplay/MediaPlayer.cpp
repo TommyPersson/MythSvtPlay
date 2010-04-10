@@ -1,99 +1,175 @@
 #include "MediaPlayer.h"
 
-#include <QApplication>
+#include <iostream>
 
 #include <mythtv/mythcontext.h>
-#include <mythtv/libmythui/mythsystem.h>
-#include <mythmainwindow.h>
-
-MediaPlayerWorker::MediaPlayerWorker()
-{
-    QObject::connect(&cacheCheckTimer_, SIGNAL(timeout()),
-                     this, SLOT(onCacheLookUpNeeded()));
-    QObject::connect(this, SIGNAL(cacheFilled()),
-                     this, SLOT(onCacheFilled()));
-}
-
-void MediaPlayerWorker::playEpisode(Episode* episode)
-{
-    if (episode == NULL)
-        return;
-
-    dumper_.setCacheSize(1600000);
-    dumper_.dump(episode->mediaUrl, episode->urlIsPlaylist);
-
-    cacheCheckTimer_.start(100);
-}
-
-void MediaPlayerWorker::onCacheLookUpNeeded()
-{
-    int percent = (int) (dumper_.cacheFillRatio() * 100);
-
-    if (percent >= 100)
-    {
-        cacheCheckTimer_.stop();
-        emit cacheFilled();
-    }
-    else
-    {
-        emit cacheFilledPercent(percent);
-    }
-}
-
-void MediaPlayerWorker::onCacheFilled()
-{
-    gContext->sendPlaybackStart();
-
-    myth_system("mplayer -fs -zoom -ao alsa -really-quiet " + StreamDumper::getDumpFilepath());
-
-    // Internal player is broken on partially downloaded wmv:s, transcoding is needed.
-    //gContext->GetMainWindow()->HandleMedia("Internal", StreamDumper::getDumpFilepath(), "plot", "title");
-
-    gContext->sendPlaybackEnd();
-
-    dumper_.abort();
-    dumper_.wait();
-
-    emit playbackFinished();
-}
 
 MediaPlayer::MediaPlayer()
-    : episode_(NULL)
-{}
+    : episode_(NULL),
+      mplayerState_(FILLING_CACHE),
+      monitorCache_(false)
+{
+    playerProcess_.moveToThread(this);
+
+    QObject::connect(&playerProcess_, SIGNAL(readyRead()),
+                     this, SLOT(onDataAvailable()));
+
+    QObject::connect(&playerProcess_, SIGNAL(finished(int)),
+                     this, SLOT(onPlayerFinished(int)));
+
+    QObject::connect(&delayTimer_, SIGNAL(timeout()),
+                     this, SLOT(onDelayTimerTimeout()));
+}
 
 void MediaPlayer::run()
 {
-    MediaPlayerWorker worker;
+    QStringList playerArgs;
+    playerArgs << "-user-agent" << "NSPlayer/8.0.0.4477"
+               << "-slave"
+               << "-fs"
+               << "-zoom"
+               << "-ao" << "alsa"
+               << "-cache" << "8192"
+               << (episode_->urlIsPlaylist ? "-playlist" : "")
+               << episode_->mediaUrl.toString();
 
-    QObject::connect(&worker, SIGNAL(cacheFilledPercent(int)),
-                     this, SLOT(onCacheFilledPercentChange(int)));
-    QObject::connect(&worker, SIGNAL(cacheFilled()),
-                     this, SLOT(onCacheFilled()));
-    QObject::connect(&worker, SIGNAL(playbackFinished()),
-                     this, SLOT(onPlaybackFinished()));
+    gContext->sendPlaybackStart();
 
-    worker.playEpisode(episode_);
+    playerProcess_.start("mplayer", playerArgs);
+
+    std::cerr << "Filling cache ..." << std::endl;
 
     exec();
+
+    playerProcess_.close();
+    monitorCache_ = false;
+    mplayerState_ = FILLING_CACHE;
+    gContext->sendPlaybackEnd();
 }
 
-void MediaPlayer::playEpisode(Episode* episode)
+void MediaPlayer::loadEpisode(Episode* episode)
 {
     episode_ = episode;
     start();
 }
 
-void MediaPlayer::onCacheFilledPercentChange(int percent)
+void MediaPlayer::onDataAvailable()
 {
-    emit cacheFilledPercent(percent);
+    QString data(playerProcess_.readLine(100));
+
+    switch (mplayerState_)
+    {
+    case FILLING_CACHE:
+        {
+            if (data.contains("Cache fill:"))
+            {
+                //Cache fill:  0.00% (0 bytes)
+                int beginPos = data.indexOf(":");
+                int endPos = data.indexOf("%");
+                QString floatData = data.mid(beginPos + 1, endPos - beginPos - 1);
+
+                float percent = floatData.toFloat();
+                int upscaledPercent = (int) percent*5;
+                emit cacheFilledPercent(upscaledPercent);
+            }
+            else if (data.contains("A:") &&
+                     data.contains("V:") &&
+                     data.contains("A-V:") &&
+                     data.contains("ct:"))
+            {
+                std::cerr << "Starting playback ..." << std::endl;
+                delayTimer_.start(3000);
+                mplayerState_ = PLAYING;
+                emit cacheFilled();
+            }
+        }
+        break;
+    case PLAYING:
+        {
+            // A:  20.4 V:  20.4 A-V: -0.016 ct: -0.049 386/386  4%  0%  0.4% 0 0 0%
+            if (data.contains("A:") &&
+                data.contains("V:") &&
+                data.contains("A-V:") &&
+                data.contains("ct:") &&
+                monitorCache_)
+            {
+                QStringList strings = data.split(" ", QString::SkipEmptyParts);
+
+                QString cacheSizeString = strings.at(strings.length()-2);
+                cacheSizeString.replace("%", "");
+                int cacheSize = cacheSizeString.toInt();
+
+                if (cacheSize <= 1)
+                {
+                   std::cerr << "Caching, again ..." << std::endl;
+                   mplayerState_ = CACHING;
+                }
+            }
+        }
+        break;
+    case CACHING:
+        {
+            playerProcess_.write("pause\n");
+
+            for (int i = 10; i > 0; --i)
+            {
+                std::cerr << "Buffering, remaning time: " << i << " seconds" << std::endl;
+
+                QString osdString;
+                osdString = osdString + "osd_show_text \"Buffering (" + QString::number(i) + ") \" 1000\n";
+
+                // Mplayer sometimes needs to be kicked multiple times to actually display something
+                playerProcess_.write("pause\n");
+                playerProcess_.write(osdString.toAscii());
+                playerProcess_.write("pause\n");
+                playerProcess_.write(osdString.toAscii());
+                playerProcess_.write("pause\n");
+
+                sleep(1);
+            }
+
+            playerProcess_.write("pause\n");
+
+            playerProcess_.read(playerProcess_.bytesAvailable());
+
+            mplayerState_ = RESUMING;
+        }
+        break;
+    case RESUMING:
+        {
+            if (data.contains("A:") &&
+                data.contains("V:") &&
+                data.contains("A-V:") &&
+                data.contains("ct:"))
+            {
+                QStringList strings = data.split(" ", QString::SkipEmptyParts);
+
+                QString cacheSizeString = strings.at(strings.length()-2);
+                cacheSizeString.replace("%", "");
+                int cacheSize = cacheSizeString.toInt();
+
+                QString osdString;
+                osdString = osdString + "pausing_keep osd_show_text \"Cache size: " +  QString::number(cacheSize) + "%\" 4000\n";
+
+                // Mplayer sometimes needs to be kicked multiple times to actually display something
+                playerProcess_.write(osdString.toAscii());
+                playerProcess_.write(osdString.toAscii());
+
+                std::cerr << "Resuming playback ..." << std::endl;
+                mplayerState_ = PLAYING;
+            }
+        }
+        break;
+    }
 }
 
-void MediaPlayer::onCacheFilled()
-{
-    emit cacheFilled();
-}
-
-void MediaPlayer::onPlaybackFinished()
+void MediaPlayer::onPlayerFinished(int exitCode)
 {
     quit();
+}
+
+void MediaPlayer::onDelayTimerTimeout()
+{
+    monitorCache_ = true;
+    playerProcess_.read(playerProcess_.bytesAvailable());
 }

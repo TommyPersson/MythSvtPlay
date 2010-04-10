@@ -1,0 +1,411 @@
+#include "ProgramListBuilder.h"
+#include "Program.h"
+
+#include <QDir>
+#include <QUrl>
+#include <QMap>
+#include <QPair>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+
+#include <QDomNode>
+#include <QDomNodeList>
+#include <QDomDocument>
+#include <QDomNamedNodeMap>
+
+#include <mythtv/mythdirs.h>
+#include <mythtv/libmythui/mythgenerictree.h>
+
+#include <iostream>
+
+static QUrl findProgramImageUrl(const QDomDocument& dom);
+static QString findProgramDescription(const QDomDocument& dom);
+static QString findProgramCategory(const QDomDocument& dom);
+static QUrl findProgramRssFeed(const QDomDocument& dom);
+
+ProgramListBuilder::ProgramListBuilder() :
+        state_(INITIAL),
+        aborted_(false),
+        programsComplete_(0)
+{
+    QObject::connect(&programListDownloader_, SIGNAL(finished(QNetworkReply*)),
+                     this, SLOT(onDownloadFinished(QNetworkReply*)));
+}
+
+ProgramListBuilder::~ProgramListBuilder()
+{
+    abort();
+}
+
+void ProgramListBuilder::buildProgramList()
+{
+    programsComplete_ = 0;
+    state_ = INITIAL;
+
+    downloadXmlDocument(QUrl("http://svtplay.se/alfabetisk"));
+}
+
+void ProgramListBuilder::abort()
+{
+    aborted_ = true;
+
+    while (!pendingReplies_.isEmpty())
+    {
+        QNetworkReply* r = pendingReplies_.takeFirst();
+        r->abort();
+        r->deleteLater();
+    }
+
+    while (!readyReplies_.isEmpty())
+    {
+        QNetworkReply* r = readyReplies_.takeFirst();
+        r->abort();
+        r->deleteLater();
+    }
+
+    while (!programs_.isEmpty())
+    {
+        delete programs_.takeFirst();
+    }
+}
+
+void ProgramListBuilder::downloadXmlDocument(const QUrl& url)
+{
+    std::cerr << "Downloading xml document" << std::endl;
+    QNetworkReply* reply = programListDownloader_.get(QNetworkRequest(url));
+    pendingReplies_.push_front(reply);
+}
+
+void ProgramListBuilder::downloadImage(Program* program)
+{
+    QString filename = program->logoUrl.path().section('/', -1);
+
+    QDir savelocation(GetConfDir() + "/mythsvtplay/images/");
+
+    QFile savefile(savelocation.absolutePath() + "/" + filename);
+    if (!savefile.exists())
+    {
+        QNetworkRequest request(program->logoUrl);
+        request.setAttribute(QNetworkRequest::User, qVariantFromValue(program));
+
+        QNetworkReply* showReply = programListDownloader_.get(request);
+
+        pendingReplies_.push_back(showReply);
+    }
+    else
+    {
+        programsComplete_++;
+
+        emit numberOfProgramsComplete(programsComplete_);
+        emit programComplete(program->title);
+    }
+
+    program->logoFilepath = savelocation.absolutePath() + "/" + filename;
+}
+
+void ProgramListBuilder::onDownloadFinished(QNetworkReply* reply)
+{
+    pendingReplies_.removeOne(reply);
+    readyReplies_.push_back(reply);
+
+    doDownloadFsm();
+}
+
+void ProgramListBuilder::doDownloadFsm()
+{
+    switch (state_)
+    {
+
+    case INITIAL:
+        {
+            std::cerr << "Initial state" << std::endl;
+            if (aborted_)
+                return;
+
+            QNetworkReply* reply = readyReplies_.takeFirst();
+
+            QDomDocument doc;
+            if (!doc.setContent(reply->readAll()))
+            {
+                return;
+            }
+
+            reply->deleteLater();
+
+            fillProgramTitlesAndUrls(doc);
+
+            for (int i = 0; i < programs_.count(); ++i)
+            {
+                QUrl url("http://svtplay.se" + programs_[i]->link);
+                QNetworkRequest request(url);
+                request.setAttribute(QNetworkRequest::User, qVariantFromValue(programs_[i]));
+
+                QNetworkReply* showReply = programListDownloader_.get(request);
+
+                pendingReplies_.push_back(showReply);
+            }
+            emit numberOfProgramsComplete(0);
+            emit numberOfProgramsFound(programs_.count());
+
+            state_ = POPULATE_PROGRAM_INFO;
+
+        }
+        break;
+
+    case POPULATE_PROGRAM_INFO:
+        {
+            std::cerr << "Populate program info state!" << std::endl;
+
+            if (aborted_)
+                return;
+
+            Program* peekProgram = readyReplies_.last()->request().attribute(QNetworkRequest::User).value<Program*>();;
+
+            programsComplete_++;
+
+            emit numberOfProgramsComplete(programsComplete_);
+            emit programComplete(peekProgram->title);
+
+            if (pendingReplies_.count() == 0)
+            {
+                while(!readyReplies_.empty())
+                {
+                    QNetworkReply* reply = readyReplies_.takeFirst();
+
+                    Program* program = reply->request().attribute(QNetworkRequest::User).value<Program*>();
+
+                    QDomDocument doc;
+                    if (!doc.setContent(reply->readAll()))
+                    {
+                        QUrl url("http://svtplay.se" + program->link);
+                        QNetworkRequest request(url);
+                        request.setAttribute(QNetworkRequest::User, qVariantFromValue(program));
+
+                        QNetworkReply* showReply = programListDownloader_.get(request);
+
+                        pendingReplies_.push_back(showReply);
+
+                        reply->deleteLater();
+
+                        std::cerr << "Failed to download: " << std::endl;
+                        std::cerr << reply->url().toString().toStdString() << std::endl;
+                        std::cerr << "Retrying ..." << std::endl;
+
+                        return;
+                    }
+
+                    fillOtherProgramInfo(program, doc);
+
+                    reply->deleteLater();
+                }
+
+
+                programsComplete_ = 0;
+
+                state_ = DOWNLOAD_IMAGES;
+
+                for (int i = 0; i < programs_.count(); ++i)
+                {
+                    downloadImage(programs_[i]);
+                }
+
+                if (pendingReplies_.count() == 0)
+                {
+                    emit programListBuilt(programs_);
+
+                    programs_.clear();
+                }
+            }
+        }
+        break;
+
+    case DOWNLOAD_IMAGES:
+        {
+            if (aborted_)
+                return;
+
+            Program* peekProgram = readyReplies_.last()->request().attribute(QNetworkRequest::User).value<Program*>();;
+
+            programsComplete_++;
+
+            emit numberOfProgramsComplete(programsComplete_);
+            emit programComplete(peekProgram->title);
+
+
+            if (pendingReplies_.count() == 0)
+            {
+                while(!readyReplies_.empty())
+                {
+                    QNetworkReply* reply = readyReplies_.takeFirst();
+
+                    Program* program = reply->request().attribute(QNetworkRequest::User).value<Program*>();
+
+                    QUrl url = reply->url();
+                    QString filename = url.path().section('/', -1);
+
+                    QDir savelocation(GetConfDir() + "/mythsvtplay/images/");
+
+                    QFile savefile(savelocation.absolutePath() + "/" + filename);
+
+                    savefile.open(QIODevice::WriteOnly);
+                    savefile.write(reply->readAll());
+                    savefile.close();
+
+                    program->logoFilepath = savelocation.absolutePath() + "/" + filename;
+                }
+
+                emit programListBuilt(programs_);
+
+                programs_.clear();
+            }
+
+        }
+        break;
+    }
+}
+
+void ProgramListBuilder::fillProgramTitlesAndUrls(const QDomDocument& aoListDocument)
+{
+    QDomNodeList nodes = aoListDocument.elementsByTagName("ul");
+
+    QString currentLetter;
+
+    for (int i = 0; i < nodes.count(); ++i)
+    {
+        QDomNode node = nodes.at(i);
+        QDomNamedNodeMap attributes = node.attributes();
+        if (attributes.contains("class"))
+        {
+            QString attributeValue = attributes.namedItem("class").toAttr().value();
+            if (attributeValue.contains("leter-list"))
+            {
+                QDomNodeList listNodes = node.childNodes();
+                for (int j = 0; j < listNodes.count(); ++j)
+                {
+                    QDomNode child = listNodes.at(j).firstChild();
+
+                    if (child.nodeName() == "h2")
+                    {
+                        QString text = child.toElement().text();
+
+                        currentLetter = text;
+                    }
+
+                    if (child.nodeName() == "a")
+                    {
+                        QString link = child.attributes().namedItem("href").toAttr().value();
+                        QString title = child.toElement().text();
+
+                        Program* program = new Program();
+
+                        program->firstLetter = currentLetter;
+                        program->title = title;
+                        program->link = link;
+
+                        programs_.push_back(program);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void ProgramListBuilder::fillOtherProgramInfo(Program* program, const QDomDocument& programDocument)
+{
+    program->logoUrl = findProgramImageUrl(programDocument);
+    program->description = findProgramDescription(programDocument);
+    program->category = findProgramCategory(programDocument);
+    program->rssUrl = findProgramRssFeed(programDocument);
+}
+
+QString findProgramDescription(const QDomDocument& dom)
+{
+    QDomNodeList nodes = dom.elementsByTagName("meta");
+
+    for (int i = 0; i < nodes.count(); ++i)
+    {
+        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
+
+        if (nodeAttributes.contains("name"))
+        {
+            if (nodeAttributes.namedItem("name").toAttr().value() == "description")
+            {
+                QString description = nodeAttributes.namedItem("content").toAttr().value();
+                return description;
+            }
+        }
+    }
+
+    return "";
+}
+
+QUrl findProgramImageUrl(const QDomDocument& dom)
+{
+    QDomNodeList nodes = dom.elementsByTagName("link");
+
+    for (int i = 0; i < nodes.count(); ++i)
+    {
+        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
+
+        if (nodeAttributes.contains("rel"))
+        {
+            if (nodeAttributes.namedItem("rel").toAttr().value() == "image_src")
+            {
+                QString imageUrl = nodeAttributes.namedItem("href").toAttr().value();
+                imageUrl.replace("thumb","start");
+                return QUrl(imageUrl);
+            }
+        }
+    }
+
+    return QUrl("");
+}
+
+QString findProgramCategory(const QDomDocument& dom)
+{
+    QDomNodeList nodes = dom.elementsByTagName("span");
+
+    for (int i = 0; i < nodes.count(); ++i)
+    {
+        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
+
+        if (nodeAttributes.contains("class"))
+        {
+            QString classValue = nodeAttributes.namedItem("class").toAttr().value();
+
+            if (classValue == "category")
+            {
+                QDomElement elem = nodes.at(i).toElement();
+
+                QString wholeText = elem.text();
+                QString category = wholeText.remove("Kategori:").simplified();
+
+                return category;
+            }
+        }
+    }
+
+    return "";
+}
+
+QUrl findProgramRssFeed(const QDomDocument& dom)
+{
+    QDomNodeList elements = dom.elementsByTagName("link");
+
+    for (int i = 0; i < elements.count(); ++i)
+    {
+        QDomNamedNodeMap attributes = elements.at(i).attributes();
+        if (attributes.contains("rel"))
+        {
+            if (attributes.namedItem("rel").toAttr().value() == "alternate")
+            {
+                QUrl url(attributes.namedItem("href").toAttr().value());
+                if (url.queryItemValue("expression").contains("full"))
+                {
+                    return url;
+                }
+            }
+        }
+    }
+    return QUrl("");
+}
