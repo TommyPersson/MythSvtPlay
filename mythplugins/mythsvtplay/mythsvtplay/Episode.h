@@ -10,6 +10,7 @@ struct Episode
 {
     QString title;
     QString description;
+    QString type;
 
     QDateTime publishedDate;
     QString availableUntilDate;

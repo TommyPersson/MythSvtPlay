@@ -32,13 +32,13 @@ public slots:
     void onEpisodeSelected(MythUIButtonListItem*);
     void onEpisodeClicked(MythUIButtonListItem*);
 
+    void onEpisodeTypeSelected(MythUIButtonListItem*);
+
     void onCancelClicked();
 
     void onCacheFilledPercentChange(int);
     void onCacheFilled();
-    void onFinishedPlayback();
-    void onMediaFileReady(const QString&);
-    void onTimerEvent();
+
     void onImageReady(MythUIImage*);
 
 private:
@@ -46,7 +46,8 @@ private:
 
     Program* program_;
 
-    MythUIButtonTree* episodeList_;
+    MythUIButtonList* episodeList_;
+    MythUIButtonList* episodeTypeList_;
 
     MythUIImage* programLogoImage_;
     MythUIImage* episodePreviewImage_;
@@ -67,6 +68,7 @@ private:
     MediaPlayer mediaPlayer_;
     ImageLoader imageLoader_;
 
+    QString selectedEpisodeType_;
 };
 
 #endif // PROGRAMWINDOW_H

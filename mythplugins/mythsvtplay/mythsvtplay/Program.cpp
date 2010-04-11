@@ -9,7 +9,8 @@ QDataStream& operator<<(QDataStream& s, const Program& p)
       << p.logoFilepath
       << p.link
       << p.rssUrl
-      << p.logoUrl;
+      << p.logoUrl
+      << p.episodeTypeLinks;
 
     return s;
 }
@@ -23,7 +24,8 @@ QDataStream& operator>>(QDataStream& s, Program& p)
       >> p.logoFilepath
       >> p.link
       >> p.rssUrl
-      >> p.logoUrl;
+      >> p.logoUrl
+      >> p.episodeTypeLinks;
 
     return s;
 }

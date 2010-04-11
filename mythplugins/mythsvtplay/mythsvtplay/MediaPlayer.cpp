@@ -4,6 +4,14 @@
 
 #include <mythtv/mythcontext.h>
 
+bool matchesStatusLine(QString string)
+{
+    return string.contains("A:") &&
+           string.contains("V:") &&
+           string.contains("A-V:") &&
+           string.contains("ct:");
+}
+
 MediaPlayer::MediaPlayer()
     : episode_(NULL),
       mplayerState_(FILLING_CACHE),
@@ -72,10 +80,7 @@ void MediaPlayer::onDataAvailable()
                 int upscaledPercent = (int) percent*5;
                 emit cacheFilledPercent(upscaledPercent);
             }
-            else if (data.contains("A:") &&
-                     data.contains("V:") &&
-                     data.contains("A-V:") &&
-                     data.contains("ct:"))
+            else if (matchesStatusLine(data))
             {
                 std::cerr << "Starting playback ..." << std::endl;
                 delayTimer_.start(3000);
@@ -87,10 +92,7 @@ void MediaPlayer::onDataAvailable()
     case PLAYING:
         {
             // A:  20.4 V:  20.4 A-V: -0.016 ct: -0.049 386/386  4%  0%  0.4% 0 0 0%
-            if (data.contains("A:") &&
-                data.contains("V:") &&
-                data.contains("A-V:") &&
-                data.contains("ct:") &&
+            if (matchesStatusLine(data) &&
                 monitorCache_)
             {
                 QStringList strings = data.split(" ", QString::SkipEmptyParts);
@@ -137,10 +139,7 @@ void MediaPlayer::onDataAvailable()
         break;
     case RESUMING:
         {
-            if (data.contains("A:") &&
-                data.contains("V:") &&
-                data.contains("A-V:") &&
-                data.contains("ct:"))
+            if (matchesStatusLine(data))
             {
                 QStringList strings = data.split(" ", QString::SkipEmptyParts);
 

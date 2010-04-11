@@ -13,6 +13,12 @@
 #include <QDomDocument>
 #include <QDomNamedNodeMap>
 
+#include <QTextStream>
+
+#include <QBuffer>
+#include <QXmlQuery>
+#include <QXmlSerializer>
+
 #include <mythtv/mythdirs.h>
 #include <mythtv/libmythui/mythgenerictree.h>
 
@@ -22,6 +28,8 @@ static QUrl findProgramImageUrl(const QDomDocument& dom);
 static QString findProgramDescription(const QDomDocument& dom);
 static QString findProgramCategory(const QDomDocument& dom);
 static QUrl findProgramRssFeed(const QDomDocument& dom);
+static QList<QPair<QString, QString> > findProgramEpisodeTypeLinks(const QDomDocument& dom);
+static QString executeXQuery(const QDomDocument& dom, const QString& query);
 
 ProgramListBuilder::ProgramListBuilder() :
         state_(INITIAL),
@@ -71,7 +79,6 @@ void ProgramListBuilder::abort()
 
 void ProgramListBuilder::downloadXmlDocument(const QUrl& url)
 {
-    std::cerr << "Downloading xml document" << std::endl;
     QNetworkReply* reply = programListDownloader_.get(QNetworkRequest(url));
     pendingReplies_.push_front(reply);
 }
@@ -118,7 +125,6 @@ void ProgramListBuilder::doDownloadFsm()
 
     case INITIAL:
         {
-            std::cerr << "Initial state" << std::endl;
             if (aborted_)
                 return;
 
@@ -154,8 +160,6 @@ void ProgramListBuilder::doDownloadFsm()
 
     case POPULATE_PROGRAM_INFO:
         {
-            std::cerr << "Populate program info state!" << std::endl;
-
             if (aborted_)
                 return;
 
@@ -266,47 +270,33 @@ void ProgramListBuilder::doDownloadFsm()
 
 void ProgramListBuilder::fillProgramTitlesAndUrls(const QDomDocument& aoListDocument)
 {
-    QDomNodeList nodes = aoListDocument.elementsByTagName("ul");
+    QString results = executeXQuery(aoListDocument,
+                                    "<programs>"
+                                    "{for $a in doc($inputDocument)//ul[@class='leter-list']//a[contains(@href, '/t/')]"
+                                    "return"
+                                    "<program>"
+                                    "  <link>{string($a/@href)}</link>"
+                                    "  <title>{$a/text()}</title>"
+                                    "</program>}"
+                                    "</programs>\n");
 
-    QString currentLetter;
+    QDomDocument xqueryResults;
+    xqueryResults.setContent(results);
 
-    for (int i = 0; i < nodes.count(); ++i)
+    QDomNodeList programs = xqueryResults.elementsByTagName("program");
+
+    for (int i = 0; i < programs.count(); ++i)
     {
-        QDomNode node = nodes.at(i);
-        QDomNamedNodeMap attributes = node.attributes();
-        if (attributes.contains("class"))
-        {
-            QString attributeValue = attributes.namedItem("class").toAttr().value();
-            if (attributeValue.contains("leter-list"))
-            {
-                QDomNodeList listNodes = node.childNodes();
-                for (int j = 0; j < listNodes.count(); ++j)
-                {
-                    QDomNode child = listNodes.at(j).firstChild();
+        QString link = programs.at(i).childNodes().at(0).toElement().text();
+        QString title = programs.at(i).childNodes().at(1).toElement().text();
 
-                    if (child.nodeName() == "h2")
-                    {
-                        QString text = child.toElement().text();
+        Program* program = new Program();
 
-                        currentLetter = text;
-                    }
+        program->firstLetter = title.at(0);
+        program->link = link;
+        program->title = title;
 
-                    if (child.nodeName() == "a")
-                    {
-                        QString link = child.attributes().namedItem("href").toAttr().value();
-                        QString title = child.toElement().text();
-
-                        Program* program = new Program();
-
-                        program->firstLetter = currentLetter;
-                        program->title = title;
-                        program->link = link;
-
-                        programs_.push_back(program);
-                    }
-                }
-            }
-        }
+        programs_.push_back(program);
     }
 }
 
@@ -316,96 +306,84 @@ void ProgramListBuilder::fillOtherProgramInfo(Program* program, const QDomDocume
     program->description = findProgramDescription(programDocument);
     program->category = findProgramCategory(programDocument);
     program->rssUrl = findProgramRssFeed(programDocument);
+    program->episodeTypeLinks = findProgramEpisodeTypeLinks(programDocument);
 }
 
 QString findProgramDescription(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("meta");
+    QString description = executeXQuery(dom, "string(doc($inputDocument)//meta[@name='description']/@content)");
 
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
-
-        if (nodeAttributes.contains("name"))
-        {
-            if (nodeAttributes.namedItem("name").toAttr().value() == "description")
-            {
-                QString description = nodeAttributes.namedItem("content").toAttr().value();
-                return description;
-            }
-        }
-    }
-
-    return "";
+    return description;
 }
 
 QUrl findProgramImageUrl(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("link");
+    QString url = executeXQuery(dom, "string(doc($inputDocument)//link[@rel='image_src']/@href)");
+    url.replace("thumb","start");
 
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
-
-        if (nodeAttributes.contains("rel"))
-        {
-            if (nodeAttributes.namedItem("rel").toAttr().value() == "image_src")
-            {
-                QString imageUrl = nodeAttributes.namedItem("href").toAttr().value();
-                imageUrl.replace("thumb","start");
-                return QUrl(imageUrl);
-            }
-        }
-    }
-
-    return QUrl("");
+    return QUrl(url);
 }
 
 QString findProgramCategory(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("span");
+    QString category = executeXQuery(dom, "doc($inputDocument)//span[@class='category']/a/text()");
 
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
-
-        if (nodeAttributes.contains("class"))
-        {
-            QString classValue = nodeAttributes.namedItem("class").toAttr().value();
-
-            if (classValue == "category")
-            {
-                QDomElement elem = nodes.at(i).toElement();
-
-                QString wholeText = elem.text();
-                QString category = wholeText.remove("Kategori:").simplified();
-
-                return category;
-            }
-        }
-    }
-
-    return "";
+    return category;
 }
 
 QUrl findProgramRssFeed(const QDomDocument& dom)
 {
-    QDomNodeList elements = dom.elementsByTagName("link");
+    QString rssFeed = executeXQuery(dom, "string(doc($inputDocument)//link[@rel='alternate' and contains(@href, 'expression=full')]/@href)");
 
-    for (int i = 0; i < elements.count(); ++i)
+    return QUrl(rssFeed);
+}
+
+
+QList<QPair<QString, QString> > findProgramEpisodeTypeLinks(const QDomDocument& dom)
+{
+    QList<QPair<QString, QString> > episodeTypeLinkList;
+
+    QString results = executeXQuery(dom,
+                                    "<links>"
+                                    "{for $a in doc($inputDocument)//div[@id='sb']//ul[@class='navigation playerbrowser']//a[contains(@class, 'internal')]"
+                                    "return"
+                                    "<link>"
+                                    "  <href>{string($a/@href)}</href>"
+                                    "  <text>{$a/text()}</text>"
+                                    "</link>}"
+                                    "</links>\n");
+
+    QDomDocument xqueryResults;
+    xqueryResults.setContent(results);
+
+    QDomNodeList links = xqueryResults.elementsByTagName("link");
+
+    for (int i = 0; i < links.count(); ++i)
     {
-        QDomNamedNodeMap attributes = elements.at(i).attributes();
-        if (attributes.contains("rel"))
-        {
-            if (attributes.namedItem("rel").toAttr().value() == "alternate")
-            {
-                QUrl url(attributes.namedItem("href").toAttr().value());
-                if (url.queryItemValue("expression").contains("full"))
-                {
-                    return url;
-                }
-            }
-        }
+        QString link = links.at(i).childNodes().at(0).toElement().text();
+        QString type = links.at(i).childNodes().at(1).toElement().text();
+
+        episodeTypeLinkList.push_back(QPair<QString, QString>(type, link));
     }
-    return QUrl("");
+
+    return episodeTypeLinkList;
+}
+
+QString executeXQuery(const QDomDocument& dom, const QString& query)
+{
+    QBuffer device;
+    device.setData(dom.toByteArray());
+    device.open(QIODevice::ReadOnly);
+
+    QXmlQuery xquery;
+    xquery.bindVariable("inputDocument", &device);
+    xquery.setQuery(
+            "declare default element namespace \"http://www.w3.org/1999/xhtml\";"
+            "declare variable $inputDocument external;" +
+            query);
+
+    QString resultString;
+    xquery.evaluateTo(&resultString);
+
+    return resultString.trimmed();
 }

@@ -2,7 +2,10 @@
 #define PROGRAM_H
 
 #include <QString>
+#include <QPair>
 #include <QUrl>
+#include <QMap>
+#include <QMultiMap>
 
 #include <iostream>
 
@@ -18,6 +21,8 @@ struct Program
     QString logoFilepath;
 
     QList<Episode*> episodes;
+    QList<QPair<QString,QString> > episodeTypeLinks;
+    QMultiMap<QString, Episode*> episodesByType;
 
     QString link;
     QUrl rssUrl;

@@ -86,8 +86,29 @@
       <value>$ProgramDescription</value>
     </textarea>
 
+    <shape name="episode-type-list-shape">
+      <area>0,160,1280,40</area>
+      <type>box</type>
+      <fill color="#000000" alpha="150"/>
+      <line color="#FFFFFF" alpha="0" width="0"/>
+    </shape>
+
+    <buttonlist name="episode-type-list" from="baseselector">
+      <area>100,160,1080,40</area>
+      <layout>horizontal</layout>
+      <spacing>5</spacing>      
+      <buttonarea>0,0,100%,100%</buttonarea>
+      <!-- Don't want these... -->
+      <statetype name="downscrollarrow">
+        <position>10000,10000</position>
+      </statetype>
+      <statetype name="upscrollarrow">
+        <position>10000,10000</position>
+      </statetype>
+    </buttonlist>
+
     <shape name="preview-box-shape">
-      <area>80,168,540,340</area>
+      <area>80,205,540,300</area>
       <type>roundbox</type>
       <fill color="#000000" alpha="150"/>
       <line color="#FFFFFF" alpha="0" width="0"/>
@@ -95,23 +116,22 @@
     </shape>
 
     <imagetype name="episode-preview-image">
-      <area>100,188,500,300</area>
+      <area>100,225,500,260</area>
       <preserveaspect>true</preserveaspect>
     </imagetype>
 
     <shape name="list-box-shape">
-      <area>660,168,540,340</area>
+      <area>660,205,540,300</area>
       <type>roundbox</type>
       <fill color="#000000" alpha="150"/>
       <line color="#FFFFFF" alpha="0" width="0"/>
       <cornerradius>10</cornerradius>
     </shape>
 
-    <buttontree name="episode-tree">
-      <area>680,188,500,300</area>
-      <numlists>1</numlists>
-      <buttonlist name="listtemplate" from="basebuttonlist" />
-    </buttontree>
+    <buttonlist name="episode-list" from="basebuttonlist">
+      <area>680,225,500,260</area>
+      <layout>vertical</layout>
+    </buttonlist>
 
     <shape name="info-box-shape">
       <area>0,520,1280,282</area>

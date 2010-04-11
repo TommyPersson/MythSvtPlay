@@ -9,7 +9,8 @@ target.path = $${LIBDIR}/mythtv/plugins
 INSTALLS += target
 QT += xml \
     sql \
-    network
+    network \
+    xmlpatterns
 
 # Input
 HEADERS += MainWindow.h \

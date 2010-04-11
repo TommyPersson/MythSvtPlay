@@ -22,6 +22,7 @@
 static QList<QUrl> findEpisodeUrls(const QDomDocument& dom);
 static QList<QDateTime> findEpisodePubDates(const QDomDocument& dom);
 
+static QString findType(const QDomDocument& dom);
 static QString findTitle(const QDomDocument& dom);
 static QString findDescription(const QDomDocument& dom);
 static QString findAvailableUntilDate(const QDomDocument& dom);
@@ -243,6 +244,8 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDoc
 
         Episode* episode = new Episode;
 
+        episode->type = findType(dom);
+
         episode->title = findTitle(dom);
         episode->description = findDescription(dom);
 
@@ -277,6 +280,12 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDoc
 
     std::cerr << "Adding episodes to program!" << std::endl;
     program_->episodes = episodeList;
+
+    for (int i = 0; i < episodeList.size(); ++i)
+    {
+        Episode* ep = episodeList.at(i);
+        program_->episodesByType.insert(ep->type, ep);
+    }
 
     std::cerr << "Returning program!" << std::endl;
     return program_;
@@ -394,3 +403,46 @@ QUrl findEpisodeImageUrl(const QDomDocument& dom)
     return QUrl("");
 }
 
+
+QString findType(const QDomDocument& dom)
+{
+    QDomNodeList elements = dom.elementsByTagName("div");
+
+    int showBrowserIndex = 0;
+
+    for (int i = 0; i < elements.count(); ++i)
+    {
+        QDomNamedNodeMap attributes = elements.at(i).attributes();
+        if (attributes.contains("id"))
+        {
+            if (attributes.namedItem("id").toAttr().value() == "sb")
+            {
+                showBrowserIndex = i;
+                break;
+            }
+        }
+    }
+
+    QDomElement showBrowserDiv = elements.at(showBrowserIndex).toElement();
+    QDomNodeList uls = showBrowserDiv.elementsByTagName("ul");
+
+    QDomElement playerBrowserUl;
+
+    for (int i = 0; i < uls.count(); ++i)
+    {
+        QDomNamedNodeMap attributes = uls.at(i).attributes();
+        if (attributes.contains("class"))
+        {
+            if (attributes.namedItem("class").toAttr().value().contains("navigation playerbrowser"))
+            {
+                std::cerr << "found ul" << std::endl;
+                playerBrowserUl = uls.at(i).toElement();
+                break;
+            }
+        }
+    }
+
+    QString type = playerBrowserUl.elementsByTagName("h2").at(0).toElement().text();
+
+    return type;
+}

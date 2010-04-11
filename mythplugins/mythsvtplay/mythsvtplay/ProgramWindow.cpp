@@ -28,7 +28,8 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     }
 
     bool err = false;
-    UIUtilE::Assign(this, episodeList_, "episode-tree", &err);
+    UIUtilE::Assign(this, episodeList_, "episode-list", &err);
+    UIUtilE::Assign(this, episodeTypeList_, "episode-type-list", &err);
 
     UIUtilE::Assign(this, episodeTitleText_, "episode-title", &err);
     UIUtilE::Assign(this, episodeDescriptionText_, "episode-description", &err);
@@ -44,6 +45,9 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
                      this, SLOT(onEpisodeClicked(MythUIButtonListItem*)));
     QObject::connect(episodeList_, SIGNAL(itemSelected(MythUIButtonListItem*)),
                      this, SLOT(onEpisodeSelected(MythUIButtonListItem*)));
+
+    QObject::connect(episodeTypeList_, SIGNAL(itemSelected(MythUIButtonListItem*)),
+                     this, SLOT(onEpisodeTypeSelected(MythUIButtonListItem*)));
 
     QObject::connect(&mediaPlayer_, SIGNAL(cacheFilledPercent(int)),
                      this, SLOT(onCacheFilledPercentChange(int)));
@@ -61,9 +65,18 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     imageLoader_.loadImage(programLogoImage_);
     imageLoader_.start();
 
-    populateEpisodeList();
+    episodeTypeList_->Reset();
 
-    SetFocusWidget(episodeList_);
+    for (int i = 0; i < program_->episodeTypeLinks.size(); ++i)
+    {
+        MythUIButtonListItem* item = new MythUIButtonListItem(
+                episodeTypeList_,
+                program_->episodeTypeLinks.at(i).first);
+    }
+
+    //populateEpisodeList();
+
+    SetFocusWidget(episodeTypeList_);
 }
 
 ProgramWindow::~ProgramWindow()
@@ -74,26 +87,27 @@ ProgramWindow::~ProgramWindow()
 
 void ProgramWindow::populateEpisodeList()
 {
-    MythGenericTree* list = new MythGenericTree("root-node");
+    episodeList_->Reset();
 
-    for (int i = 0; i < program_->episodes.size(); ++i)
+    QList<Episode*> episodes = program_->episodesByType.values(selectedEpisodeType_);
+
+    for (int i = episodes.size() - 1; i >= 0; --i)
     {
-        MythGenericTree* episodeNode = new MythGenericTree(program_->episodes.at(i)->title);
-        episodeNode->SetData(QVariant::fromValue(program_->episodes.at(i)));
-
-        list->addNode(episodeNode);
+        MythUIButtonListItem* item = new MythUIButtonListItem(
+                episodeList_,
+                episodes.at(i)->title,
+                QVariant::fromValue(episodes.at(i)));
     }
 
-    episodeList_->AssignTree(list);
-
-    onEpisodeSelected(episodeList_->GetItemCurrent());
+    if (episodes.size() > 0)
+    {
+        onEpisodeSelected(episodeList_->GetItemCurrent());
+    }
 }
 
-void ProgramWindow::onEpisodeClicked(MythUIButtonListItem *item)
+void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
 {
-    MythGenericTree* node = item->GetData().value<MythGenericTree*>();
-
-    QVariant itemData = node->GetData();
+    QVariant itemData = item->GetData();
 
     Episode* episode = itemData.value<Episode*>();
 
@@ -115,11 +129,9 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem *item)
     mediaPlayer_.loadEpisode(episode);
 }
 
-void ProgramWindow::onEpisodeSelected(MythUIButtonListItem *item)
+void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
 {
-    MythGenericTree* node = item->GetData().value<MythGenericTree*>();
-
-    QVariant itemData = node->GetData();
+    QVariant itemData = item->GetData();
 
     Episode* episode = itemData.value<Episode*>();
 
@@ -131,6 +143,13 @@ void ProgramWindow::onEpisodeSelected(MythUIButtonListItem *item)
     episodeAvailableToDateText_->SetText(episode->availableUntilDate);
 
     this->Refresh();
+}
+
+void ProgramWindow::onEpisodeTypeSelected(MythUIButtonListItem* item)
+{
+    selectedEpisodeType_ = item->GetText();
+
+    populateEpisodeList();
 }
 
 void ProgramWindow::onCancelClicked()
@@ -193,6 +212,22 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
             {
                 Close();
             }
+        }
+        else if (action == "UP")
+        {
+            SetFocusWidget(episodeTypeList_);
+        }
+        else if (action == "DOWN")
+        {
+            SetFocusWidget(episodeList_);
+        }
+        else if (action == "LEFT")
+        {
+            SetFocusWidget(episodeTypeList_);
+        }
+        else if (action == "RIGHT")
+        {
+            SetFocusWidget(episodeList_);
         }
         else
             handled = false;
