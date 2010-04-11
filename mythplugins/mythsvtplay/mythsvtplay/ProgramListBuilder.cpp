@@ -360,8 +360,8 @@ QList<QPair<QString, QString> > findProgramEpisodeTypeLinks(const QDomDocument& 
 
     for (int i = 0; i < links.count(); ++i)
     {
-        QString link = links.at(i).childNodes().at(0).toElement().text();
-        QString type = links.at(i).childNodes().at(1).toElement().text();
+        QString link = links.at(i).childNodes().at(0).toElement().text().trimmed();
+        QString type = links.at(i).childNodes().at(1).toElement().text().trimmed();
 
         episodeTypeLinkList.push_back(QPair<QString, QString>(type, link));
     }

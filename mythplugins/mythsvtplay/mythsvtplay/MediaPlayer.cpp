@@ -30,7 +30,7 @@ MediaPlayer::MediaPlayer()
 }
 
 void MediaPlayer::run()
-{
+{    
     QStringList playerArgs;
     playerArgs << "-user-agent" << "NSPlayer/8.0.0.4477"
                << "-slave"
@@ -42,6 +42,8 @@ void MediaPlayer::run()
                << episode_->mediaUrl.toString();
 
     gContext->sendPlaybackStart();
+
+    std::cerr << "Playing: <" << episode_->mediaUrl.toString().toStdString() << ">" << std::endl;
 
     playerProcess_.start("mplayer", playerArgs);
 
@@ -111,22 +113,16 @@ void MediaPlayer::onDataAvailable()
         break;
     case CACHING:
         {
+            QString osdString;
+            osdString = osdString + "osd_show_text \"Buffering for 10 seconds\" 9000\n";
+
+            playerProcess_.write(osdString.toAscii());
+            playerProcess_.write(osdString.toAscii());
             playerProcess_.write("pause\n");
 
             for (int i = 10; i > 0; --i)
             {
                 std::cerr << "Buffering, remaning time: " << i << " seconds" << std::endl;
-
-                QString osdString;
-                osdString = osdString + "osd_show_text \"Buffering (" + QString::number(i) + ") \" 1000\n";
-
-                // Mplayer sometimes needs to be kicked multiple times to actually display something
-                playerProcess_.write("pause\n");
-                playerProcess_.write(osdString.toAscii());
-                playerProcess_.write("pause\n");
-                playerProcess_.write(osdString.toAscii());
-                playerProcess_.write("pause\n");
-
                 sleep(1);
             }
 

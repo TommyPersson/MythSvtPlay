@@ -12,6 +12,10 @@
 #include <QDir>
 #include <QFile>
 
+#include <QBuffer>
+#include <QXmlQuery>
+#include <QXmlSerializer>
+
 #include <mythtv/mythdirs.h>
 
 #include "Program.h"
@@ -28,6 +32,8 @@ static QString findDescription(const QDomDocument& dom);
 static QString findAvailableUntilDate(const QDomDocument& dom);
 static QUrl findMediaUrl(const QDomDocument& dom);
 static QUrl findEpisodeImageUrl(const QDomDocument& dom);
+
+static QString executeXQuery(const QDomDocument& dom, const QString& query);
 
 EpisodeListBuilder::EpisodeListBuilder()
         : state_(GET_EPISODES_URLS),
@@ -184,7 +190,6 @@ void EpisodeListBuilder::downloadImage(const QUrl& url)
 
 QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
 {
-
     QDomNodeList elements = dom.elementsByTagName("link");
 
     QList<QUrl> urlList;
@@ -205,21 +210,12 @@ QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
 
 QList<QDateTime> findEpisodePubDates(const QDomDocument& dom)
 {
-
     QDomNodeList elements = dom.elementsByTagName("pubDate");
 
     QList<QDateTime> dateList;
 
-    bool firstIteration = true;
-    for (int i = 0; i < elements.count(); ++i)
+    for (int i = 1; i < elements.count(); ++i)
     {
-        // disregard the first date, it's for the entire feed
-        if (firstIteration)
-        {
-            firstIteration = false;
-            continue;
-        }
-
         QString dateString(elements.at(i).toElement().text());
 
         // Ex: Thu, 07 Jan 2010 18:30:00 GMT
@@ -276,9 +272,6 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDoc
         episodeList.push_front(episode);
     }
 
-    //downloadImage(programLogoUrl_);
-
-    std::cerr << "Adding episodes to program!" << std::endl;
     program_->episodes = episodeList;
 
     for (int i = 0; i < episodeList.size(); ++i)
@@ -287,18 +280,13 @@ Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDoc
         program_->episodesByType.insert(ep->type, ep);
     }
 
-    std::cerr << "Returning program!" << std::endl;
     return program_;
 }
 
 
 QString findTitle(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("title");
-
-    QDomNode node = nodes.at(0); // Only one <title> in XHTML
-
-    QString wholeTitle = node.toElement().text();
+    QString wholeTitle = executeXQuery(dom, "string(doc($inputDocument)//title)");
 
     // A title element is always(?) "{episode title} - {Show} | SVT Play"
     QString title = wholeTitle.left(wholeTitle.lastIndexOf(" - ")+1).simplified();
@@ -308,141 +296,56 @@ QString findTitle(const QDomDocument& dom)
 
 QString findDescription(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("meta");
+    QString description = executeXQuery(dom, "string(doc($inputDocument)//meta[@name='description']/@content)");
 
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
-
-        if (nodeAttributes.contains("name"))
-        {
-            if (nodeAttributes.namedItem("name").toAttr().value() == "description")
-            {
-                QString description = nodeAttributes.namedItem("content").toAttr().value();
-                return description;
-            }
-        }
-    }
-
-    return "";
+    return description;
 }
 
 QString findAvailableUntilDate(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("span");
+    QString date = executeXQuery(dom, "string(doc($inputDocument)//span[@class='rights']/em)");
 
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomElement node = nodes.at(i).toElement();
-        QDomNamedNodeMap nodeAttributes = node.attributes();
-
-        if (nodeAttributes.contains("class"))
-        {
-            QString classValue = nodeAttributes.namedItem("class").toAttr().value();
-
-            if (classValue == "rights")
-            {
-                QDomNodeList rightsNodes = node.elementsByTagName("em");
-
-                QString date = rightsNodes.at(0).toElement().text();
-                return date;
-            }
-        }
-    }
-
-    return "";
+    return date;
 }
 
 QUrl findMediaUrl(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("a");
+    QString mediaUrl = executeXQuery(dom, "string(doc($inputDocument)//a[@class='external-player' and (contains(@href, '.asx') or contains(@href, '.wmv') or contains(@href, '.flv'))][1]/@href)");
 
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
-
-        if (nodeAttributes.contains("class"))
-        {
-            QString classValue = nodeAttributes.namedItem("class").toAttr().value();
-
-            if (classValue == "external-player")
-            {
-                QString href = nodeAttributes.namedItem("href").toAttr().value();
-                QUrl url(href);
-
-                if (url.toString().contains("asx") || url.toString().contains("wmv"))
-                {
-                    return url;
-                }
-            }
-        }
-    }
-
-    return QUrl("");
+    return QUrl(mediaUrl);
 }
 
 QUrl findEpisodeImageUrl(const QDomDocument& dom)
 {
-    QDomNodeList nodes = dom.elementsByTagName("link");
+    QString imageUrl = executeXQuery(dom, "string(doc($inputDocument)//link[@rel='image_src']/@href)");
+    imageUrl.replace("thumb","start");
 
-    for (int i = 0; i < nodes.count(); ++i)
-    {
-        QDomNamedNodeMap nodeAttributes = nodes.at(i).attributes();
-
-        if (nodeAttributes.contains("rel"))
-        {
-            if (nodeAttributes.namedItem("rel").toAttr().value() == "image_src")
-            {
-                QString imageUrl = nodeAttributes.namedItem("href").toAttr().value();
-                imageUrl.replace("thumb","start");
-                return QUrl(imageUrl);
-            }
-        }
-    }
-
-    return QUrl("");
+    return QUrl(imageUrl);
 }
 
 
 QString findType(const QDomDocument& dom)
 {
-    QDomNodeList elements = dom.elementsByTagName("div");
-
-    int showBrowserIndex = 0;
-
-    for (int i = 0; i < elements.count(); ++i)
-    {
-        QDomNamedNodeMap attributes = elements.at(i).attributes();
-        if (attributes.contains("id"))
-        {
-            if (attributes.namedItem("id").toAttr().value() == "sb")
-            {
-                showBrowserIndex = i;
-                break;
-            }
-        }
-    }
-
-    QDomElement showBrowserDiv = elements.at(showBrowserIndex).toElement();
-    QDomNodeList uls = showBrowserDiv.elementsByTagName("ul");
-
-    QDomElement playerBrowserUl;
-
-    for (int i = 0; i < uls.count(); ++i)
-    {
-        QDomNamedNodeMap attributes = uls.at(i).attributes();
-        if (attributes.contains("class"))
-        {
-            if (attributes.namedItem("class").toAttr().value().contains("navigation playerbrowser"))
-            {
-                std::cerr << "found ul" << std::endl;
-                playerBrowserUl = uls.at(i).toElement();
-                break;
-            }
-        }
-    }
-
-    QString type = playerBrowserUl.elementsByTagName("h2").at(0).toElement().text();
+    QString type = executeXQuery(dom, "doc($inputDocument)//div[@id='sb']//ul[@class='navigation playerbrowser']//li[@class='selected']//a/text()");
 
     return type;
+}
+
+QString executeXQuery(const QDomDocument& dom, const QString& query)
+{
+    QBuffer device;
+    device.setData(dom.toByteArray());
+    device.open(QIODevice::ReadOnly);
+
+    QXmlQuery xquery;
+    xquery.bindVariable("inputDocument", &device);
+    xquery.setQuery(
+            "declare default element namespace \"http://www.w3.org/1999/xhtml\";"
+            "declare variable $inputDocument external;" +
+            query);
+
+    QString resultString;
+    xquery.evaluateTo(&resultString);
+
+    return resultString.trimmed();
 }
