@@ -16,6 +16,8 @@
 #include <QXmlQuery>
 #include <QXmlSerializer>
 
+#include <QtAlgorithms>
+
 #include <mythtv/mythdirs.h>
 
 #include "Program.h"
@@ -35,9 +37,12 @@ static QUrl findEpisodeImageUrl(const QDomDocument& dom);
 
 static QString executeXQuery(const QDomDocument& dom, const QString& query);
 
-EpisodeListBuilder::EpisodeListBuilder()
-        : state_(GET_EPISODES_URLS),
-          aborted_(false)
+EpisodeListBuilder::EpisodeListBuilder(QString episodeType, QUrl url)
+    : state_(GET_EPISODES_URLS),
+      aborted_(false),
+      episodesAvailable_(true),
+      pageUrl_(url),
+      episodeType_(episodeType)
 {
     QObject::connect(&manager_, SIGNAL(finished(QNetworkReply*)),
                      this, SLOT(onDownloadFinished(QNetworkReply*)));
@@ -48,18 +53,27 @@ EpisodeListBuilder::EpisodeListBuilder()
 EpisodeListBuilder::~EpisodeListBuilder()
 {
     abort();
+
+    for (int i = 0; i < episodes_.values().count(); ++i)
+    {
+        delete episodes_.values().at(i);
+    }
+    episodes_.clear();
 }
 
-void EpisodeListBuilder::buildEpisodeList(Program* program)
+void EpisodeListBuilder::buildEpisodeList()
 {
-    program_ = program;
-
     pendingReplies_.clear();
     readyReplies_.clear();
     state_ = GET_EPISODES_URLS;
 
-    QNetworkReply* reply = manager_.get(QNetworkRequest(program->rssUrl));
+    QNetworkReply* reply = manager_.get(QNetworkRequest(pageUrl_));
     pendingReplies_.push_back(reply);
+}
+
+bool EpisodeListBuilder::moreEpisodesAvailable()
+{
+    return episodesAvailable_;
 }
 
 void EpisodeListBuilder::abort()
@@ -79,10 +93,25 @@ void EpisodeListBuilder::abort()
         r->abort();
         r->deleteLater();
     }
+
+    while (!imageDownloadQueue_.isEmpty())
+    {
+        QNetworkReply* r = imageDownloadQueue_.takeFirst();
+        r->abort();
+        r->deleteLater();
+    }
+}
+
+QList<Episode*> EpisodeListBuilder::episodeList()
+{
+    return episodes_.values();
 }
 
 void EpisodeListBuilder::onDownloadFinished(QNetworkReply* reply)
 {
+    if (aborted_)
+        return;
+
     readyReplies_.push_back(reply);
     pendingReplies_.removeOne(reply);
 
@@ -91,6 +120,12 @@ void EpisodeListBuilder::onDownloadFinished(QNetworkReply* reply)
 
 void EpisodeListBuilder::onDownloadImageFinished(QNetworkReply* reply)
 {
+    if (aborted_)
+    {
+        reply->deleteLater();
+        return;
+    }
+
     imageDownloadQueue_.removeOne(reply);
 
     QUrl url = reply->url();
@@ -115,33 +150,31 @@ void EpisodeListBuilder::doDownloadFsm()
         {
             QNetworkReply* reply = readyReplies_.takeFirst();
 
-            QDomDocument rssDoc;
-            rssDoc.setContent(reply->readAll());
+            QDomDocument programDoc;
+            programDoc.setContent(reply->readAll());
 
-            QList<QUrl> urls = findEpisodeUrls(rssDoc);
+            QList<QUrl> urls = findEpisodeUrls(programDoc);
 
             if (urls.isEmpty())
             {
                 pendingReplies_.clear();
                 reply->deleteLater();
 
-                emit this->noEpisodesFound();
+                emit noEpisodesFound(episodeType_);
 
                 return;
             }
 
-            QList<QDateTime> pubDates = findEpisodePubDates(rssDoc);
-
-            for (int i = 0; i < urls.count(); ++i)
-            {
-                episodeUrlToPubDateMap_.insert(urls.at(i), pubDates.at(i));
-            }
+            int count = episodes_.count();
 
             for (int i = 0; i < urls.size(); ++i)
             {
                 QUrl url = urls.at(i);
 
-                QNetworkReply* episodeReply = manager_.get(QNetworkRequest(url));
+                QNetworkRequest request(url);
+                request.setAttribute(QNetworkRequest::User, QVariant(count + i));
+
+                QNetworkReply* episodeReply = manager_.get(request);
                 pendingReplies_.push_back(episodeReply);
             }
 
@@ -153,8 +186,6 @@ void EpisodeListBuilder::doDownloadFsm()
         {
             if (pendingReplies_.size() == 0)
             {
-                QMultiMap<QDateTime, QDomDocument> docs;
-
                 while (!readyReplies_.isEmpty())
                 {
                     QNetworkReply* reply = readyReplies_.takeFirst();
@@ -162,14 +193,16 @@ void EpisodeListBuilder::doDownloadFsm()
                     QDomDocument doc;
                     doc.setContent(reply->readAll());
 
-                    docs.insert(episodeUrlToPubDateMap_.find(reply->url()).value(), doc);
+                    Episode* episode = parseEpisodeDoc(doc);
+
+                    episode->position = reply->request().attribute(QNetworkRequest::User).toInt();
+
+                    episodes_[episode->position] = episode;
 
                     reply->deleteLater();
                 }
 
-                Program* program = parseEpisodeDocs(docs);
-
-                emit episodesLoaded(program);
+                emit episodesReady(episodeType_);
             }
             break;
         }
@@ -190,97 +223,71 @@ void EpisodeListBuilder::downloadImage(const QUrl& url)
 
 QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
 {
-    QDomNodeList elements = dom.elementsByTagName("link");
+    QString results = executeXQuery(dom,
+                                    "<urls> "
+                                    "{for $a in doc($inputDocument)//div[@id='sb']//div[contains(@class, 'show-tab-container')]//li//a "
+                                    "return "
+                                    "<url>{string($a/@href)}</url>} "
+                                    "</urls>\n");
+
+    QDomDocument xqueryResults;
+    xqueryResults.setContent(results);
 
     QList<QUrl> urlList;
 
-    for (int i = 0; i < elements.count(); ++i)
-    {
-        QUrl url(elements.at(i).toElement().text());
+    QDomNodeList urls = xqueryResults.elementsByTagName("url");
 
-        // Disregard the link to the rss-feeds
-        if (!url.queryItemValue("mode").contains("rss"))
-        {
-            urlList.push_back(url);
-        }
+    for (int i = 0; i < urls.count(); ++i)
+    {
+        urlList.push_front(QUrl("http://svtplay.se/" + urls.at(i).toElement().text()));
     }
 
     return urlList;
 }
 
+// not used yet, silly implementation
 QList<QDateTime> findEpisodePubDates(const QDomDocument& dom)
 {
-    QDomNodeList elements = dom.elementsByTagName("pubDate");
-
     QList<QDateTime> dateList;
 
-    for (int i = 1; i < elements.count(); ++i)
-    {
-        QString dateString(elements.at(i).toElement().text());
-
-        // Ex: Thu, 07 Jan 2010 18:30:00 GMT
-        QDateTime date = QDateTime::fromString(dateString, "ddd, dd MMM yyyy hh:mm:ss 'GMT'");
-
-        dateList.push_back(date);
-    }
+    dateList.push_back(QDateTime::currentDateTime());
 
     return dateList;
 }
 
-Program* EpisodeListBuilder::parseEpisodeDocs(const QMultiMap<QDateTime, QDomDocument>& doms)
+Episode* EpisodeListBuilder::parseEpisodeDoc(const QDomDocument& dom)
 {
-    QList<Episode*> episodeList;
+    Episode* episode = new Episode;
 
-    QMapIterator<QDateTime, QDomDocument> i(doms);
-    while (i.hasNext())
+    episode->type = findType(dom);
+
+    episode->title = findTitle(dom);
+    episode->description = findDescription(dom);
+
+    if (episode->description.simplified() == "")
     {
-        i.next();
-
-        QDomDocument dom = i.value();
-
-        Episode* episode = new Episode;
-
-        episode->type = findType(dom);
-
-        episode->title = findTitle(dom);
-        episode->description = findDescription(dom);
-
-        if (episode->description.simplified() == "")
-        {
-            episode->description = "Ingen beskrivning tillgänglig.";
-        }
-
-        episode->publishedDate = i.key();
-        episode->availableUntilDate = QString::fromUtf8("Tillgänglig t.o.m. ") + findAvailableUntilDate(dom) + ".";
-
-        episode->mediaUrl = findMediaUrl(dom);
-
-        QUrl episodeImageUrl = findEpisodeImageUrl(dom);
-        downloadImage(episodeImageUrl);
-        episode->episodeImageFilepath = GetConfDir() + "/mythsvtplay/images/" + episodeImageUrl.path().section('/', -1);
-
-        if (episode->mediaUrl.path().contains("asx") ||
-            episode->mediaUrl.toString().contains("geoip"))
-        {
-            episode->urlIsPlaylist = true;
-        }
-        else
-        {
-            episode->urlIsPlaylist = false;
-        }
-
-        episodeList.push_front(episode);
+        episode->description = "Ingen beskrivning tillgänglig.";
     }
 
-    program_->episodes = episodeList;
+    episode->publishedDate = QDateTime::currentDateTime();
+    episode->availableUntilDate = QString::fromUtf8("Tillgänglig t.o.m. ") + findAvailableUntilDate(dom) + ".";
+    episode->mediaUrl = findMediaUrl(dom);
 
-    for (int i = 0; i < episodeList.size(); ++i)
+    QUrl episodeImageUrl = findEpisodeImageUrl(dom);
+    downloadImage(episodeImageUrl);
+    episode->episodeImageFilepath = GetConfDir() + "/mythsvtplay/images/" + episodeImageUrl.path().section('/', -1);
+
+    if (episode->mediaUrl.path().contains("asx") ||
+        episode->mediaUrl.toString().contains("geoip"))
     {
-        Episode* ep = episodeList.at(i);
-        program_->episodesByType.insert(ep->type, ep);
+        episode->urlIsPlaylist = true;
+    }
+    else
+    {
+        episode->urlIsPlaylist = false;
     }
 
-    return program_;
+    return episode;
 }
 
 

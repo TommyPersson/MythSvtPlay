@@ -2,6 +2,7 @@
 
 #include "Program.h"
 #include "ProgressDialog.h"
+#include "EpisodeListBuilder.h"
 
 #include <iostream>
 
@@ -40,7 +41,6 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     UIUtilE::Assign(this, programDescriptionText_, "program-description", &err);
     UIUtilE::Assign(this, programLogoImage_, "program-logo-image", &err);
 
-
     QObject::connect(episodeList_, SIGNAL(itemClicked(MythUIButtonListItem*)),
                      this, SLOT(onEpisodeClicked(MythUIButtonListItem*)));
     QObject::connect(episodeList_, SIGNAL(itemSelected(MythUIButtonListItem*)),
@@ -74,22 +74,53 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
                 program_->episodeTypeLinks.at(i).first);
     }
 
-    //populateEpisodeList();
+    episodeBuilders_.clear();
+
+    for (int i = 0; i < program->episodeTypeLinks.size(); ++i)
+    {
+        QString link = program->link + program->episodeTypeLinks.at(i).second;
+        EpisodeListBuilder* builder = new EpisodeListBuilder(
+                                            program->episodeTypeLinks.at(i).first,
+                                            QUrl("http://svtplay.se" + link));
+
+        episodeBuilders_[program->episodeTypeLinks.at(i).first] = builder;
+
+        QObject::connect(builder, SIGNAL(episodesReady(QString)),
+                         this, SLOT(onEpisodesReady(QString)));
+
+        builder->buildEpisodeList();
+    }
 
     SetFocusWidget(episodeTypeList_);
 }
 
 ProgramWindow::~ProgramWindow()
 {
+    for (int i = 0; i < episodeBuilders_.values().count(); ++i)
+    {
+        delete episodeBuilders_.values().at(i);
+    }
+    episodeBuilders_.clear();
+    program_->episodesByType.clear();
+
     imageLoader_.terminate();
     imageLoader_.wait();
+}
+
+void ProgramWindow::onEpisodesReady(const QString& episodeType)
+{
+    QList<Episode*> episodes = episodeBuilders_[episodeType]->episodeList();
+
+    program_->episodesByType[episodeType] = episodes;
+
+    populateEpisodeList();
 }
 
 void ProgramWindow::populateEpisodeList()
 {
     episodeList_->Reset();
 
-    QList<Episode*> episodes = program_->episodesByType.values(selectedEpisodeType_);
+    QList<Episode*> episodes = program_->episodesByType[selectedEpisodeType_];
 
     for (int i = episodes.size() - 1; i >= 0; --i)
     {

@@ -34,9 +34,6 @@ public slots:
     void onListButtonSelected(MythUIButtonListItem *item);
     void onImageReady(MythUIImage*);
 
-    void onReceiveEpisodes(Program*);
-    void onNoEpisodesReceived();
-
     void abortProgramsDownload();
     void onNumberOfProgramsFound(int count);
     void onNumberOfProgramsComplete(int count);
@@ -62,7 +59,6 @@ private:
     MythConfirmationDialog* confirmCacheRefreshDialog_;
 
     ProgramListCache* programListCache_;
-    EpisodeListBuilder* episodeListBuilder_;
 
     ImageLoader imageLoader_;
 };

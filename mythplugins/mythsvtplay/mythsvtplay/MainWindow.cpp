@@ -20,8 +20,7 @@
 MainWindow::MainWindow(MythScreenStack *parentStack)
     : MythScreenType(parentStack, "MainWindow"),
       progressDialog_(NULL),
-      programListCache_(new ProgramListCache()),
-      episodeListBuilder_(new EpisodeListBuilder())
+      programListCache_(new ProgramListCache())
 {
     if (!LoadWindowFromXML("svtplay-ui.xml", "main", this))
     {
@@ -43,11 +42,6 @@ MainWindow::MainWindow(MythScreenStack *parentStack)
     QObject::connect(programTree_, SIGNAL(itemSelected(MythUIButtonListItem*)),
                      this, SLOT(onListButtonSelected(MythUIButtonListItem*)));
 
-    QObject::connect(episodeListBuilder_, SIGNAL(episodesLoaded(Program*)),
-                     this, SLOT(onReceiveEpisodes(Program*)));
-    QObject::connect(episodeListBuilder_, SIGNAL(noEpisodesFound()),
-                     this, SLOT(onNoEpisodesReceived()));
-
     QObject::connect(&imageLoader_, SIGNAL(imageReady(MythUIImage*)),
                      this, SLOT(onImageReady(MythUIImage*)));
 
@@ -56,7 +50,6 @@ MainWindow::MainWindow(MythScreenStack *parentStack)
 
 MainWindow::~MainWindow()
 {
-    delete episodeListBuilder_;
     delete programListCache_;
 
     while(!programList_.isEmpty())
@@ -141,9 +134,10 @@ void MainWindow::onListButtonClicked(MythUIButtonListItem *item)
     QVariant itemData = node->GetData();
     Program* program = itemData.value<Program*>();
 
-    busyDialog_ = ShowBusyPopup("Downloading episode data ...");
+    //busyDialog_ = ShowBusyPopup("Downloading episode data ...");
 
-    episodeListBuilder_->buildEpisodeList(program);
+    ProgramWindow* window = new ProgramWindow(GetScreenStack(), program);
+    GetScreenStack()->AddScreen(window);
 }
 
 void MainWindow::onListButtonSelected(MythUIButtonListItem *item)
@@ -174,24 +168,6 @@ void MainWindow::onListButtonSelected(MythUIButtonListItem *item)
 void MainWindow::onImageReady(MythUIImage* image)
 {
     image->Load();
-}
-
-void MainWindow::onReceiveEpisodes(Program* program)
-{
-    if (busyDialog_)
-        busyDialog_->Close();
-
-    ProgramWindow* window = new ProgramWindow(GetScreenStack(), program);
-    GetScreenStack()->AddScreen(window);
-}
-
-void MainWindow::onNoEpisodesReceived()
-{
-    if (busyDialog_)
-    {
-        busyDialog_->Close();
-        busyDialog_ = NULL;
-    }
 }
 
 void MainWindow::abortProgramsDownload()

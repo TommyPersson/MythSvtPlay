@@ -18,7 +18,11 @@ struct Episode
     QUrl mediaUrl;
     bool urlIsPlaylist;
     QString episodeImageFilepath;
+
+    int position;
 };
+
+bool comparePosition(Episode* l, Episode* r);
 
 Q_DECLARE_METATYPE(Episode)
 Q_DECLARE_METATYPE(Episode*)

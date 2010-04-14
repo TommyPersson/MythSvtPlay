@@ -22,7 +22,7 @@ struct Program
 
     QList<Episode*> episodes;
     QList<QPair<QString,QString> > episodeTypeLinks;
-    QMultiMap<QString, Episode*> episodesByType;
+    QMap<QString, QList<Episode*> > episodesByType;
 
     QString link;
     QUrl rssUrl;

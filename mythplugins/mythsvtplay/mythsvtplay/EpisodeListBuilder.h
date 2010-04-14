@@ -13,16 +13,23 @@ class QNetworkReply;
 class QDomDocument;
 
 class Program;
+class Episode;
 
 class EpisodeListBuilder : public QObject
 {
     Q_OBJECT
 
 public:
-    EpisodeListBuilder();
+    EpisodeListBuilder(QString episodeType, QUrl url);
+
     ~EpisodeListBuilder();
 
-    void buildEpisodeList(Program*);
+    void buildEpisodeList();
+
+    bool moreEpisodesAvailable();
+
+    QList<Episode*> episodeList();
+
     void abort();
 
 public slots:
@@ -30,8 +37,8 @@ public slots:
     void onDownloadImageFinished(QNetworkReply*);
 
 signals:
-    void episodesLoaded(Program* program);
-    void noEpisodesFound();
+    void episodesReady(const QString& episodeType);
+    void noEpisodesFound(const QString& episodeType);
 
 private:
 
@@ -42,13 +49,16 @@ private:
 
     void downloadImage(const QUrl& url);
 
-    Program* parseEpisodeDocs(const QMultiMap<QDateTime, QDomDocument>& dom);
-
-    Program* program_;
+    Episode* parseEpisodeDoc(const QDomDocument& dom);
 
     bool aborted_;
 
-    QMap<QUrl, QDateTime> episodeUrlToPubDateMap_;
+    bool episodesAvailable_;
+
+    QUrl pageUrl_;
+    QString episodeType_;
+
+    QMap<int, Episode*> episodes_;
 
     QList<QNetworkReply*> pendingReplies_;
     QList<QNetworkReply*> readyReplies_;

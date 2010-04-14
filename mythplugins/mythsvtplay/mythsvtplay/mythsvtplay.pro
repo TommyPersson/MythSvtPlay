@@ -32,7 +32,8 @@ SOURCES += main.cpp \
     ImageLoader.cpp \
     ProgressDialog.cpp \
     ProgramListCache.cpp \
-    Program.cpp
+    Program.cpp \
+    Episode.cpp
 
 macx:QMAKE_LFLAGS += -flat_namespace \
     -undefined \

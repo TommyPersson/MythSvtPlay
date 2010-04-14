@@ -16,6 +16,7 @@ class MythUIText;
 
 class ProgressDialog;
 class Program;
+class EpisodeListBuilder;
 
 class ProgramWindow : public MythScreenType
 {
@@ -34,6 +35,8 @@ public slots:
 
     void onEpisodeTypeSelected(MythUIButtonListItem*);
 
+    void onEpisodesReady(const QString& episodeType);
+
     void onCancelClicked();
 
     void onCacheFilledPercentChange(int);
@@ -45,6 +48,7 @@ private:
     void populateEpisodeList();
 
     Program* program_;
+    QMap<QString, EpisodeListBuilder*> episodeBuilders_;
 
     MythUIButtonList* episodeList_;
     MythUIButtonList* episodeTypeList_;
