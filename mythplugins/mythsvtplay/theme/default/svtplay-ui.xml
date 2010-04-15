@@ -75,7 +75,7 @@
       <area>268,30,412,95</area>
       <align>vcenter,hcenter</align>
       <font>basetitle</font>
-      <value>$ProgramName</value>
+      <value></value>
     </textarea>
 
     <textarea name="program-description">
@@ -83,7 +83,7 @@
       <align>left,vcenter</align>
       <font>basetitle</font>
       <multiline>yes</multiline>
-      <value>$ProgramDescription</value>
+      <value></value>
     </textarea>
 
     <shape name="episode-type-list-shape">
@@ -144,7 +144,7 @@
       <area>100,550,500,30</area>
       <align>top,left</align>
       <font>basetitle</font>
-      <value>$EpisodeName</value>
+      <value></value>
     </textarea>
 
     <textarea name="episode-description">
@@ -152,14 +152,14 @@
       <align>top,left</align>
       <font>basetitle</font>
       <multiline>yes</multiline>
-      <value>$EpisodeDescription</value>
+      <value></value>
     </textarea>
 
     <textarea name="episode-available-to-date">
       <area>680,550,500,30</area>
       <align>top,right</align>
       <font>small</font>
-      <value>$AvailableToDate</value>
+      <value></value>
     </textarea>
 
   </window>

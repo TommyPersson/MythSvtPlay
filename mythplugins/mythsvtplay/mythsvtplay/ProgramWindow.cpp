@@ -21,6 +21,7 @@
 ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     : MythScreenType(parentStack, "ProgramWindow"),
       program_(program),
+      savedListPosition_(0),
       progressDialog_(NULL)
 {
     if (!LoadWindowFromXML("svtplay-ui.xml", "program-view", this))
@@ -122,7 +123,7 @@ void ProgramWindow::populateEpisodeList()
 
     QList<Episode*> episodes = program_->episodesByType[selectedEpisodeType_];
 
-    for (int i = episodes.size() - 1; i >= 0; --i)
+    for (int i = 0; i < episodes.size(); ++i)
     {
         MythUIButtonListItem* item = new MythUIButtonListItem(
                 episodeList_,
@@ -132,12 +133,42 @@ void ProgramWindow::populateEpisodeList()
 
     if (episodes.size() > 0)
     {
-        onEpisodeSelected(episodeList_->GetItemCurrent());
+        if (episodeBuilders_[selectedEpisodeType_]->moreEpisodesAvailable())
+        {
+            MythUIButtonListItem* item = new MythUIButtonListItem(
+                    episodeList_,
+                    QString::fromUtf8("Hämta fler ..."),
+                    QVariant(selectedEpisodeType_));
+        }
+
+        episodeList_->SetItemCurrent(savedListPosition_);
+    }
+    else if (episodeBuilders_[selectedEpisodeType_] != NULL)
+    {
+        if (episodeBuilders_[selectedEpisodeType_]->isBusy())
+        {
+            MythUIButtonListItem* item = new MythUIButtonListItem(
+                    episodeList_,
+                    QString::fromUtf8("Hämtar ..."));
+        }
     }
 }
 
 void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
 {
+    if (item->GetText() == QString::fromUtf8("Hämta fler ..."))
+    {
+        episodeBuilders_[selectedEpisodeType_]->buildEpisodeList();
+
+        savedListPosition_ = episodeList_->GetCurrentPos();
+
+        item->SetText(QString::fromUtf8("Hämtar ..."));
+
+        return;
+    }
+    else if (item->GetText() == QString::fromUtf8("Hämtar ..."))
+        return;
+
     QVariant itemData = item->GetData();
 
     Episode* episode = itemData.value<Episode*>();
@@ -162,6 +193,19 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
 
 void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
 {
+    if (item->GetText() == QString::fromUtf8("Hämta fler ...") ||
+        item->GetText() == QString::fromUtf8("Hämtar ..."))
+    {
+        episodePreviewImage_->Reset();
+        episodeDescriptionText_->SetText("");
+        episodeTitleText_->SetText("");
+        episodeAvailableToDateText_->SetText("");
+
+        Refresh();
+
+        return;
+    }
+
     QVariant itemData = item->GetData();
 
     Episode* episode = itemData.value<Episode*>();
@@ -173,7 +217,7 @@ void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
     episodeTitleText_->SetText(episode->title);
     episodeAvailableToDateText_->SetText(episode->availableUntilDate);
 
-    this->Refresh();
+    Refresh();
 }
 
 void ProgramWindow::onEpisodeTypeSelected(MythUIButtonListItem* item)
@@ -246,6 +290,7 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
         }
         else if (action == "UP")
         {
+            savedListPosition_ = 0;
             SetFocusWidget(episodeTypeList_);
         }
         else if (action == "DOWN")
@@ -258,7 +303,7 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
         }
         else if (action == "RIGHT")
         {
-            SetFocusWidget(episodeList_);
+            SetFocusWidget(episodeTypeList_);
         }
         else
             handled = false;

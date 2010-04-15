@@ -34,6 +34,7 @@ static QString findDescription(const QDomDocument& dom);
 static QString findAvailableUntilDate(const QDomDocument& dom);
 static QUrl findMediaUrl(const QDomDocument& dom);
 static QUrl findEpisodeImageUrl(const QDomDocument& dom);
+static QString findNextPageQueryString(const QDomDocument& dom);
 
 static QString executeXQuery(const QDomDocument& dom, const QString& query);
 
@@ -42,7 +43,8 @@ EpisodeListBuilder::EpisodeListBuilder(QString episodeType, QUrl url)
       aborted_(false),
       episodesAvailable_(true),
       pageUrl_(url),
-      episodeType_(episodeType)
+      episodeType_(episodeType),
+      busy_(false)
 {
     QObject::connect(&manager_, SIGNAL(finished(QNetworkReply*)),
                      this, SLOT(onDownloadFinished(QNetworkReply*)));
@@ -67,6 +69,10 @@ void EpisodeListBuilder::buildEpisodeList()
     readyReplies_.clear();
     state_ = GET_EPISODES_URLS;
 
+    std::cerr << "Downloading episodes for <" << episodeType_.toStdString() << "> at <" << pageUrl_.toString().toStdString() << ">" << std::endl;
+
+    busy_ = true;
+
     QNetworkReply* reply = manager_.get(QNetworkRequest(pageUrl_));
     pendingReplies_.push_back(reply);
 }
@@ -74,6 +80,11 @@ void EpisodeListBuilder::buildEpisodeList()
 bool EpisodeListBuilder::moreEpisodesAvailable()
 {
     return episodesAvailable_;
+}
+
+bool EpisodeListBuilder::isBusy()
+{
+    return busy_;
 }
 
 void EpisodeListBuilder::abort()
@@ -160,22 +171,43 @@ void EpisodeListBuilder::doDownloadFsm()
                 pendingReplies_.clear();
                 reply->deleteLater();
 
+                busy_ = false;
+
                 emit noEpisodesFound(episodeType_);
 
                 return;
             }
 
-            int count = episodes_.count();
+            QString query = findNextPageQueryString(programDoc);
+
+            if(!query.isEmpty())
+            {
+                episodesAvailable_ = true;
+                pageUrl_.setEncodedQuery(query.toUtf8());
+            }
+            else
+            {
+                episodesAvailable_ = false;
+            }
+
+            int offset = episodes_.count();
+            if (offset != 0)
+            {
+                offset = episodes_.values().last()->position + 1;
+            }
 
             for (int i = 0; i < urls.size(); ++i)
             {
                 QUrl url = urls.at(i);
 
-                QNetworkRequest request(url);
-                request.setAttribute(QNetworkRequest::User, QVariant(count + i));
+                if (!url.toString().contains("playprima"))
+                {
+                    QNetworkRequest request(url);
+                    request.setAttribute(QNetworkRequest::User, QVariant(offset + i));
 
-                QNetworkReply* episodeReply = manager_.get(request);
-                pendingReplies_.push_back(episodeReply);
+                    QNetworkReply* episodeReply = manager_.get(request);
+                    pendingReplies_.push_back(episodeReply);
+                }
             }
 
             reply->deleteLater();
@@ -196,11 +228,12 @@ void EpisodeListBuilder::doDownloadFsm()
                     Episode* episode = parseEpisodeDoc(doc);
 
                     episode->position = reply->request().attribute(QNetworkRequest::User).toInt();
-
                     episodes_[episode->position] = episode;
 
                     reply->deleteLater();
                 }
+
+                busy_ = false;
 
                 emit episodesReady(episodeType_);
             }
@@ -225,7 +258,7 @@ QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
 {
     QString results = executeXQuery(dom,
                                     "<urls> "
-                                    "{for $a in doc($inputDocument)//div[@id='sb']//div[contains(@class, 'show-tab-container')]//li//a "
+                                    "{for $a in reverse(doc($inputDocument)//div[@id='sb']//div[contains(@class, 'show-tab-container')]//li//a) "
                                     "return "
                                     "<url>{string($a/@href)}</url>} "
                                     "</urls>\n");
@@ -336,6 +369,20 @@ QString findType(const QDomDocument& dom)
     QString type = executeXQuery(dom, "doc($inputDocument)//div[@id='sb']//ul[@class='navigation playerbrowser']//li[@class='selected']//a/text()");
 
     return type;
+}
+
+QString findNextPageQueryString(const QDomDocument& dom)
+{
+    QString nextImageUrl = executeXQuery(dom, "string(doc($inputDocument)//div[@id='sb']//ul[@class='pagination program']/li[contains(@class, 'next')]/a/img/@src)");
+
+    if (nextImageUrl.contains("disabled"))
+    {
+        return "";
+    }
+
+    QString string = executeXQuery(dom, "string(doc($inputDocument)//div[@id='sb']//ul[@class='pagination program']/li[((@class='next ') or (@class='next'))]/a/@href)");
+
+    return string;
 }
 
 QString executeXQuery(const QDomDocument& dom, const QString& query)

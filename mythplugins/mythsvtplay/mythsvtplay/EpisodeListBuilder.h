@@ -26,6 +26,8 @@ public:
 
     void buildEpisodeList();
 
+    bool isBusy();
+
     bool moreEpisodesAvailable();
 
     QList<Episode*> episodeList();
@@ -54,6 +56,8 @@ private:
     bool aborted_;
 
     bool episodesAvailable_;
+
+    bool busy_;
 
     QUrl pageUrl_;
     QString episodeType_;

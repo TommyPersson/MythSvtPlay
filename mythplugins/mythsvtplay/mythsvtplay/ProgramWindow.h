@@ -50,6 +50,10 @@ private:
     Program* program_;
     QMap<QString, EpisodeListBuilder*> episodeBuilders_;
 
+    int savedListPosition_;
+
+    QString selectedEpisodeType_;
+
     MythUIButtonList* episodeList_;
     MythUIButtonList* episodeTypeList_;
 
@@ -71,8 +75,6 @@ private:
 
     MediaPlayer mediaPlayer_;
     ImageLoader imageLoader_;
-
-    QString selectedEpisodeType_;
 };
 
 #endif // PROGRAMWINDOW_H
