@@ -27,6 +27,9 @@ MediaPlayer::MediaPlayer()
 
     QObject::connect(&delayTimer_, SIGNAL(timeout()),
                      this, SLOT(onDelayTimerTimeout()));
+
+    QObject::connect(this, SIGNAL(finished()),
+                     this, SLOT(deleteLater()));
 }
 
 void MediaPlayer::run()
@@ -52,9 +55,11 @@ void MediaPlayer::run()
     exec();
 
     playerProcess_.close();
-    monitorCache_ = false;
-    mplayerState_ = FILLING_CACHE;
+    playerProcess_.kill();
+
     gContext->sendPlaybackEnd();
+
+    emit playbackFinished();
 }
 
 void MediaPlayer::loadEpisode(Episode* episode)
@@ -85,7 +90,7 @@ void MediaPlayer::onDataAvailable()
             else if (matchesStatusLine(data))
             {
                 std::cerr << "Starting playback ..." << std::endl;
-                delayTimer_.start(3000);
+                delayTimer_.start(5000);
                 mplayerState_ = PLAYING;
                 emit cacheFilled();
             }
@@ -103,7 +108,7 @@ void MediaPlayer::onDataAvailable()
                 cacheSizeString.replace("%", "");
                 int cacheSize = cacheSizeString.toInt();
 
-                if (cacheSize <= 1)
+                if (cacheSize == 0)
                 {
                    std::cerr << "Caching, again ..." << std::endl;
                    mplayerState_ = CACHING;
@@ -130,6 +135,8 @@ void MediaPlayer::onDataAvailable()
 
             playerProcess_.read(playerProcess_.bytesAvailable());
 
+            monitorCache_ = false;
+            delayTimer_.start(2000);
             mplayerState_ = RESUMING;
         }
         break;
@@ -167,4 +174,5 @@ void MediaPlayer::onDelayTimerTimeout()
 {
     monitorCache_ = true;
     playerProcess_.read(playerProcess_.bytesAvailable());
+    delayTimer_.stop();
 }

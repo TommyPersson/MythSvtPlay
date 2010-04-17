@@ -41,11 +41,15 @@ public slots:
 
     void onCacheFilledPercentChange(int);
     void onCacheFilled();
+    void onMediaPlayerDestroyed();
 
     void onImageReady(MythUIImage*);
 
 private:
     void populateEpisodeList();
+
+    void setupMediaPlayer(Episode*);
+    void stopMediaPlayer();
 
     Program* program_;
     QMap<QString, EpisodeListBuilder*> episodeBuilders_;
@@ -69,11 +73,10 @@ private:
     MythUIText* episodePublishedDateText_;
     MythUIText* episodeAvailableToDateText_;
 
-    MythUIBusyDialog* busyDialog_;
     MythConfirmationDialog* noStreamFoundDialog_;
     ProgressDialog* progressDialog_;
 
-    MediaPlayer mediaPlayer_;
+    IMediaPlayer* mediaPlayer_;
     ImageLoader imageLoader_;
 };
 

@@ -7,10 +7,10 @@ CONFIG += plugin \
 TARGET = mythsvtplay
 target.path = $${LIBDIR}/mythtv/plugins
 INSTALLS += target
-QT += xml \
-    sql \
-    network \
-    xmlpatterns
+QT += sql \
+      xml \
+      network \
+      xmlpatterns
 
 # Input
 HEADERS += MainWindow.h \
@@ -22,7 +22,8 @@ HEADERS += MainWindow.h \
     MediaPlayer.h \
     ImageLoader.h \
     ProgressDialog.h \
-    ProgramListCache.h
+    ProgramListCache.h \
+    IMediaPlayer.h
 SOURCES += main.cpp \
     MainWindow.cpp \
     ProgramListBuilder.cpp \

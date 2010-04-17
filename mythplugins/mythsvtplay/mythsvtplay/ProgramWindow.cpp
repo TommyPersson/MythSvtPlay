@@ -22,7 +22,8 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     : MythScreenType(parentStack, "ProgramWindow"),
       program_(program),
       savedListPosition_(0),
-      progressDialog_(NULL)
+      progressDialog_(NULL),
+      mediaPlayer_(NULL)
 {
     if (!LoadWindowFromXML("svtplay-ui.xml", "program-view", this))
     {
@@ -49,11 +50,6 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
 
     QObject::connect(episodeTypeList_, SIGNAL(itemSelected(MythUIButtonListItem*)),
                      this, SLOT(onEpisodeTypeSelected(MythUIButtonListItem*)));
-
-    QObject::connect(&mediaPlayer_, SIGNAL(cacheFilledPercent(int)),
-                     this, SLOT(onCacheFilledPercentChange(int)));
-    QObject::connect(&mediaPlayer_, SIGNAL(cacheFilled()),
-                     this, SLOT(onCacheFilled()));
 
     QObject::connect(&imageLoader_, SIGNAL(imageReady(MythUIImage*)),
                      this, SLOT(onImageReady(MythUIImage*)));
@@ -99,7 +95,8 @@ ProgramWindow::~ProgramWindow()
 {
     for (int i = 0; i < episodeBuilders_.values().count(); ++i)
     {
-        delete episodeBuilders_.values().at(i);
+        episodeBuilders_.values().at(i)->abort();
+        episodeBuilders_.values().at(i)->deleteLater();
     }
     episodeBuilders_.clear();
     program_->episodesByType.clear();
@@ -154,6 +151,29 @@ void ProgramWindow::populateEpisodeList()
     }
 }
 
+void ProgramWindow::setupMediaPlayer(Episode* episode)
+{
+    mediaPlayer_ = new MediaPlayer();
+
+    QObject::connect(mediaPlayer_, SIGNAL(cacheFilledPercent(int)),
+                     this, SLOT(onCacheFilledPercentChange(int)));
+    QObject::connect(mediaPlayer_, SIGNAL(cacheFilled()),
+                     this, SLOT(onCacheFilled()));
+    QObject::connect(mediaPlayer_, SIGNAL(destroyed()),
+                     this, SLOT(onMediaPlayerDestroyed()));
+
+    mediaPlayer_->loadEpisode(episode);
+}
+
+void ProgramWindow::stopMediaPlayer()
+{
+    if (mediaPlayer_ != NULL)
+    {
+        mediaPlayer_->quit();
+        mediaPlayer_ = NULL;
+    }
+}
+
 void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
 {
     if (item->GetText() == QString::fromUtf8("Hämta fler ..."))
@@ -188,7 +208,7 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
 
     GetScreenStack()->AddScreen(progressDialog_);
 
-    mediaPlayer_.loadEpisode(episode);
+    setupMediaPlayer(episode);
 }
 
 void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
@@ -235,7 +255,7 @@ void ProgramWindow::onCancelClicked()
         progressDialog_ = NULL;
     }
 
-    mediaPlayer_.quit();
+    stopMediaPlayer();
 }
 
 void ProgramWindow::onImageReady(MythUIImage* image)
@@ -261,8 +281,16 @@ void ProgramWindow::onCacheFilled()
     }
 }
 
+void ProgramWindow::onMediaPlayerDestroyed()
+{
+    mediaPlayer_ = NULL;
+}
+
 bool ProgramWindow::keyPressEvent(QKeyEvent *event)
 {
+    if (mediaPlayer_ != NULL && mediaPlayer_->isRunning())
+        return true;
+
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
         return true;
 
@@ -277,15 +305,29 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
 
         if (action == "ESCAPE")
         {
-            if (progressDialog_ != NULL && progressDialog_->IsVisible())
+            // Hopefully temporary fix to prevent crash when closing
+            // the window precisely when signals are recieved in the downloader.
+            bool allowEscape = true;
+            for (int j = 0; j < episodeBuilders_.values().size(); ++j)
             {
-                mediaPlayer_.quit();
-                progressDialog_->Close();
-                progressDialog_ = NULL;
+                if (episodeBuilders_.values().at(j)->isBusy())
+                {
+                    allowEscape = false;
+                }
             }
-            else
+
+            if (allowEscape)
             {
-                Close();
+                if (progressDialog_ != NULL && progressDialog_->IsVisible())
+                {
+                    stopMediaPlayer();
+                    progressDialog_->Close();
+                    progressDialog_ = NULL;
+                }
+                else
+                {
+                    Close();
+                }
             }
         }
         else if (action == "UP")

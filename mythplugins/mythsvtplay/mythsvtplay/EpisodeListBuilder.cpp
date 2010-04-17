@@ -46,10 +46,12 @@ EpisodeListBuilder::EpisodeListBuilder(QString episodeType, QUrl url)
       episodeType_(episodeType),
       busy_(false)
 {
-    QObject::connect(&manager_, SIGNAL(finished(QNetworkReply*)),
-                     this, SLOT(onDownloadFinished(QNetworkReply*)));
+    QObject::connect(&episodeDownloader_, SIGNAL(finished(QNetworkReply*)),
+                     this, SLOT(onDownloadFinished(QNetworkReply*)),
+                     Qt::QueuedConnection);
     QObject::connect(&imageDownloader_, SIGNAL(finished(QNetworkReply*)),
-                     this, SLOT(onDownloadImageFinished(QNetworkReply*)));
+                     this, SLOT(onDownloadImageFinished(QNetworkReply*)),
+                     Qt::QueuedConnection);
 }
 
 EpisodeListBuilder::~EpisodeListBuilder()
@@ -73,7 +75,7 @@ void EpisodeListBuilder::buildEpisodeList()
 
     busy_ = true;
 
-    QNetworkReply* reply = manager_.get(QNetworkRequest(pageUrl_));
+    QNetworkReply* reply = episodeDownloader_.get(QNetworkRequest(pageUrl_));
     pendingReplies_.push_back(reply);
 }
 
@@ -91,25 +93,25 @@ void EpisodeListBuilder::abort()
 {
     aborted_ = true;
 
+    episodeDownloader_.blockSignals(true);
+    imageDownloader_.blockSignals(true);
+
     while (!pendingReplies_.isEmpty())
     {
         QNetworkReply* r = pendingReplies_.takeFirst();
         r->abort();
-        r->deleteLater();
     }
 
     while (!readyReplies_.isEmpty())
     {
         QNetworkReply* r = readyReplies_.takeFirst();
         r->abort();
-        r->deleteLater();
     }
 
     while (!imageDownloadQueue_.isEmpty())
     {
         QNetworkReply* r = imageDownloadQueue_.takeFirst();
         r->abort();
-        r->deleteLater();
     }
 }
 
@@ -121,7 +123,9 @@ QList<Episode*> EpisodeListBuilder::episodeList()
 void EpisodeListBuilder::onDownloadFinished(QNetworkReply* reply)
 {
     if (aborted_)
+    {
         return;
+    }
 
     readyReplies_.push_back(reply);
     pendingReplies_.removeOne(reply);
@@ -133,7 +137,6 @@ void EpisodeListBuilder::onDownloadImageFinished(QNetworkReply* reply)
 {
     if (aborted_)
     {
-        reply->deleteLater();
         return;
     }
 
@@ -149,8 +152,6 @@ void EpisodeListBuilder::onDownloadImageFinished(QNetworkReply* reply)
     savefile.open(QIODevice::WriteOnly);
     savefile.write(reply->readAll());
     savefile.close();
-
-    reply->deleteLater();
 }
 
 void EpisodeListBuilder::doDownloadFsm()
@@ -169,7 +170,6 @@ void EpisodeListBuilder::doDownloadFsm()
             if (urls.isEmpty())
             {
                 pendingReplies_.clear();
-                reply->deleteLater();
 
                 busy_ = false;
 
@@ -205,12 +205,11 @@ void EpisodeListBuilder::doDownloadFsm()
                     QNetworkRequest request(url);
                     request.setAttribute(QNetworkRequest::User, QVariant(offset + i));
 
-                    QNetworkReply* episodeReply = manager_.get(request);
+                    QNetworkReply* episodeReply = episodeDownloader_.get(request);
                     pendingReplies_.push_back(episodeReply);
                 }
             }
 
-            reply->deleteLater();
             state_ = GET_EPISODE_DOCS;
             break;
         }
@@ -229,8 +228,6 @@ void EpisodeListBuilder::doDownloadFsm()
 
                     episode->position = reply->request().attribute(QNetworkRequest::User).toInt();
                     episodes_[episode->position] = episode;
-
-                    reply->deleteLater();
                 }
 
                 busy_ = false;

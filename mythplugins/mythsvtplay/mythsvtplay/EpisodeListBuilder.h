@@ -69,7 +69,7 @@ private:
 
     QList<QNetworkReply*> imageDownloadQueue_;
 
-    QNetworkAccessManager manager_;
+    QNetworkAccessManager episodeDownloader_;
     QNetworkAccessManager imageDownloader_;
 };
 

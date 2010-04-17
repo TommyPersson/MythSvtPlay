@@ -5,9 +5,10 @@
 #include <QThread>
 #include <QTimer>
 
+#include "IMediaPlayer.h"
 #include "Episode.h"
 
-class MediaPlayer : public QThread
+class MediaPlayer : public IMediaPlayer
 {
     Q_OBJECT
 
