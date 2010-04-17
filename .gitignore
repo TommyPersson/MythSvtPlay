@@ -4,6 +4,7 @@
 *.so
 moc_*
 *.user
+*.user.*
 Makefile
 config.pro
 config.log

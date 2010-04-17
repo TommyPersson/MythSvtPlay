@@ -306,7 +306,7 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
         if (action == "ESCAPE")
         {
             // Hopefully temporary fix to prevent crash when closing
-            // the window precisely when signals are recieved in the downloader.
+            // the window precisely when signals are received in the downloader.
             bool allowEscape = true;
             for (int j = 0; j < episodeBuilders_.values().size(); ++j)
             {
