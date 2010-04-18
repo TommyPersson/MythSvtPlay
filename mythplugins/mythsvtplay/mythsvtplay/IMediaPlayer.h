@@ -16,12 +16,8 @@ public:
 
     virtual void run() = 0;
 
-public slots:
-    virtual void onDataAvailable() = 0;
-    virtual void onPlayerFinished(int) = 0;
-    virtual void onDelayTimerTimeout() = 0;
-
 signals:
+    void connectionFailed();
     void cacheFilledPercent(int percent);
     void cacheFilled();
     void playbackFinished();

@@ -3,6 +3,8 @@
 #include "Program.h"
 #include "ProgressDialog.h"
 #include "EpisodeListBuilder.h"
+#include "MediaPlayer.h"
+#include "RtmpMediaPlayer.h"
 
 #include <iostream>
 
@@ -153,12 +155,36 @@ void ProgramWindow::populateEpisodeList()
 
 void ProgramWindow::setupMediaPlayer(Episode* episode)
 {
-    mediaPlayer_ = new MediaPlayer();
+    if (RtmpMediaPlayer::canPlay(episode))
+    {
+        mediaPlayer_ = new RtmpMediaPlayer();
+    }
+    else if (MediaPlayer::canPlay(episode))
+    {
+        mediaPlayer_ = new MediaPlayer();
+    }
+    else
+    {
+        noStreamFoundDialog_ = new MythConfirmationDialog(GetScreenStack(), "Sorry, no suitable stream found.", false);
+        noStreamFoundDialog_->Create();
+        GetScreenStack()->AddScreen(noStreamFoundDialog_);
+
+        return;
+    }
+
+    progressDialog_ = new ProgressDialog(GetScreenStack(), "cache-dialog", "Filling stream buffer ...", "0%");
+
+    QObject::connect(progressDialog_, SIGNAL(cancelClicked()),
+                     this, SLOT(onCancelClicked()));
+
+    GetScreenStack()->AddScreen(progressDialog_);
 
     QObject::connect(mediaPlayer_, SIGNAL(cacheFilledPercent(int)),
                      this, SLOT(onCacheFilledPercentChange(int)));
     QObject::connect(mediaPlayer_, SIGNAL(cacheFilled()),
                      this, SLOT(onCacheFilled()));
+    QObject::connect(mediaPlayer_, SIGNAL(connectionFailed()),
+                     this, SLOT(onConnectionFailed()));
     QObject::connect(mediaPlayer_, SIGNAL(destroyed()),
                      this, SLOT(onMediaPlayerDestroyed()));
 
@@ -192,21 +218,6 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
     QVariant itemData = item->GetData();
 
     Episode* episode = itemData.value<Episode*>();
-
-    if (episode->mediaUrl.isEmpty())
-    {
-        noStreamFoundDialog_ = new MythConfirmationDialog(GetScreenStack(), "Sorry, no suitable stream found.", false);
-        noStreamFoundDialog_->Create();
-        GetScreenStack()->AddScreen(noStreamFoundDialog_);
-        return;
-    }
-
-    progressDialog_ = new ProgressDialog(GetScreenStack(), "cache-dialog", "Filling stream buffer ...", "0%");
-
-    QObject::connect(progressDialog_, SIGNAL(cancelClicked()),
-                     this, SLOT(onCancelClicked()));
-
-    GetScreenStack()->AddScreen(progressDialog_);
 
     setupMediaPlayer(episode);
 }
@@ -284,6 +295,20 @@ void ProgramWindow::onCacheFilled()
 void ProgramWindow::onMediaPlayerDestroyed()
 {
     mediaPlayer_ = NULL;
+}
+
+void ProgramWindow::onConnectionFailed()
+{
+    if (progressDialog_)
+    {
+        progressDialog_->Close();
+        progressDialog_ = NULL;
+    }
+
+    MythConfirmationDialog* dialog = new MythConfirmationDialog(GetScreenStack(), "Connection failed, please try again.", false);
+    dialog->Create();
+    GetScreenStack()->AddScreen(dialog);
+    return;
 }
 
 bool ProgramWindow::keyPressEvent(QKeyEvent *event)

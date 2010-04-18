@@ -20,14 +20,12 @@ public:
     
     void run();
 
+    static bool canPlay(Episode* episode);
+
 public slots:
     void onDataAvailable();
     void onPlayerFinished(int);
     void onDelayTimerTimeout();
-
-signals:
-    void cacheFilledPercent(int percent);
-    void cacheFilled();
 
 private:
 
@@ -41,6 +39,7 @@ private:
     QTimer delayTimer_;
 
     bool monitorCache_;
+    bool quitting_;
 };
 
 #endif // MEDIAPLAYER_H

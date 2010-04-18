@@ -32,7 +32,7 @@ static QString findType(const QDomDocument& dom);
 static QString findTitle(const QDomDocument& dom);
 static QString findDescription(const QDomDocument& dom);
 static QString findAvailableUntilDate(const QDomDocument& dom);
-static QUrl findMediaUrl(const QDomDocument& dom);
+static QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom);
 static QUrl findEpisodeImageUrl(const QDomDocument& dom);
 static QString findNextPageQueryString(const QDomDocument& dom);
 
@@ -301,14 +301,14 @@ Episode* EpisodeListBuilder::parseEpisodeDoc(const QDomDocument& dom)
 
     episode->publishedDate = QDateTime::currentDateTime();
     episode->availableUntilDate = QString::fromUtf8("Tillgänglig t.o.m. ") + findAvailableUntilDate(dom) + ".";
-    episode->mediaUrl = findMediaUrl(dom);
+    episode->mediaUrls = findMediaUrls(dom);
 
     QUrl episodeImageUrl = findEpisodeImageUrl(dom);
     downloadImage(episodeImageUrl);
     episode->episodeImageFilepath = GetConfDir() + "/mythsvtplay/images/" + episodeImageUrl.path().section('/', -1);
 
-    if (episode->mediaUrl.path().contains("asx") ||
-        episode->mediaUrl.toString().contains("geoip"))
+    if (episode->mediaUrls["wmv"].path().contains("asx") ||
+        episode->mediaUrls["wmv"].toString().contains("geoip"))
     {
         episode->urlIsPlaylist = true;
     }
@@ -345,11 +345,19 @@ QString findAvailableUntilDate(const QDomDocument& dom)
     return date;
 }
 
-QUrl findMediaUrl(const QDomDocument& dom)
+QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom)
 {
-    QString mediaUrl = executeXQuery(dom, "string(doc($inputDocument)//a[@class='external-player' and (contains(@href, '.asx') or contains(@href, '.wmv') or contains(@href, '.flv'))][1]/@href)");
+    QMap<QString, QUrl> mediaUrls;
 
-    return QUrl(mediaUrl);
+    mediaUrls["wmv"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, '.asx') or contains(@href, '.wmv'))][1]/@href)"));
+
+    mediaUrls["flv"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, '.flv'))][1]/@href)"));
+
+    mediaUrls["rtmp"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmp://'))][1]/@href)"));
+
+    mediaUrls["rtmps"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmps://') or contains(@href, 'rtmpe://'))][1]/@href)"));
+
+    return mediaUrls;
 }
 
 QUrl findEpisodeImageUrl(const QDomDocument& dom)

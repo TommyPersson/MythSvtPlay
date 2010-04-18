@@ -15,7 +15,8 @@ bool matchesStatusLine(QString string)
 MediaPlayer::MediaPlayer()
     : episode_(NULL),
       mplayerState_(FILLING_CACHE),
-      monitorCache_(false)
+      monitorCache_(false),
+      quitting_(false)
 {
     playerProcess_.moveToThread(this);
 
@@ -34,6 +35,10 @@ MediaPlayer::MediaPlayer()
 
 void MediaPlayer::run()
 {    
+    QUrl mediaUrl = episode_->mediaUrls["flv"].toString() != ""
+                       ? episode_->mediaUrls["flv"]
+                       : episode_->mediaUrls["wmv"];
+
     QStringList playerArgs;
     playerArgs << "-user-agent" << "NSPlayer/8.0.0.4477"
                << "-slave"
@@ -42,11 +47,11 @@ void MediaPlayer::run()
                << "-ao" << "alsa"
                << "-cache" << "8192"
                << (episode_->urlIsPlaylist ? "-playlist" : "")
-               << episode_->mediaUrl.toString();
+               << mediaUrl.toString();
 
     gContext->sendPlaybackStart();
 
-    std::cerr << "Playing: <" << episode_->mediaUrl.toString().toStdString() << ">" << std::endl;
+    std::cerr << "Playing: <" << mediaUrl.toString().toStdString() << ">" << std::endl;
 
     playerProcess_.start("mplayer", playerArgs);
 
@@ -54,12 +59,20 @@ void MediaPlayer::run()
 
     exec();
 
+    quitting_ = true;
+
     playerProcess_.close();
     playerProcess_.kill();
 
     gContext->sendPlaybackEnd();
 
     emit playbackFinished();
+}
+
+bool MediaPlayer::canPlay(Episode *episode)
+{
+    return (episode->mediaUrls["flv"].toString() != "" ||
+            episode->mediaUrls["wmv"].toString() != "");
 }
 
 void MediaPlayer::loadEpisode(Episode* episode)
@@ -184,7 +197,15 @@ void MediaPlayer::onDataAvailable()
 
 void MediaPlayer::onPlayerFinished(int exitCode)
 {
-    quit();
+    if (!quitting_ && mplayerState_ == FILLING_CACHE)
+    {
+        emit connectionFailed();
+        quit();
+    }
+    else if (!quitting_)
+    {
+        quit();
+    }
 }
 
 void MediaPlayer::onDelayTimerTimeout()

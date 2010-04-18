@@ -5,6 +5,7 @@
 #include <QDate>
 #include <QUrl>
 #include <QMetaType>
+#include <QMap>
 
 struct Episode
 {
@@ -15,7 +16,7 @@ struct Episode
     QDateTime publishedDate;
     QString availableUntilDate;
 
-    QUrl mediaUrl;
+    QMap<QString, QUrl> mediaUrls;
     bool urlIsPlaylist;
     QString episodeImageFilepath;
 

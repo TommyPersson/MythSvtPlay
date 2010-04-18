@@ -3,7 +3,6 @@
 
 #include <mythscreentype.h>
 
-#include "MediaPlayer.h"
 #include "ImageLoader.h"
 
 class MythUIButtonTree;
@@ -17,6 +16,8 @@ class MythUIText;
 class ProgressDialog;
 class Program;
 class EpisodeListBuilder;
+class IMediaPlayer;
+class Episode;
 
 class ProgramWindow : public MythScreenType
 {
@@ -42,6 +43,7 @@ public slots:
     void onCacheFilledPercentChange(int);
     void onCacheFilled();
     void onMediaPlayerDestroyed();
+    void onConnectionFailed();
 
     void onImageReady(MythUIImage*);
 
