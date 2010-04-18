@@ -124,26 +124,20 @@ void MediaPlayer::onDataAvailable()
                 if (cacheSize == 0)
                 {
                    playerProcess_.write("get_percent_pos\n");
-
-                   QString reply;
-                   do
-                   {
-                       if (playerProcess_.isOpen())
-                       {
-                           reply = playerProcess_.readLine(100);
-                       }
-                   }
-                   while (!reply.contains("ANS_PERCENT_POSITION="));
-
-                   int percentPos = reply.right(QString("ANS_PERCENT_POSITION=").length()).toInt();
-
-                   if (percentPos < 99)
-                   {
-                       std::cerr << "Caching, again ..." << std::endl;
-                       mplayerState_ = CACHING;
-                   }
+                   playerProcess_.waitForBytesWritten();
                 }
             }
+            else if (data.contains("ANS_PERCENT_POSITION="))
+            {
+                int percentPos = data.mid(QString("ANS_PERCENT_POSITION=").length()).toInt();
+
+                if (percentPos < 99)
+                {
+                    std::cerr << "Caching, again ..." << std::endl;
+                    mplayerState_ = CACHING;
+                }
+            }
+
         }
         break;
     case CACHING:
