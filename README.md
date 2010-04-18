@@ -89,8 +89,8 @@ cache (for example when SVT introduces new shows) simply press MENU
 (m) on the main menu. A dialog will popup and ask you to confirm the
 refresh.
 
-Known Issues
-------------
+Known Issues / Bugs
+-------------------
 
 * When using the streams downloaded by flvstreamer or rtmpdump,
   mplayer won't prevent you from seeking beyond what's currently
@@ -100,6 +100,6 @@ Known Issues
 Todo
 ----
 
-* Allow browsing by category
+* Redo the main menu ui
 * Allow searching
 * Allow marking shows as favorites

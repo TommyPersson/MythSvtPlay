@@ -52,6 +52,9 @@ MainWindow::~MainWindow()
 {
     delete programListCache_;
 
+    programTree_->DeleteAllChildren();
+    delete programTree_;
+
     while(!programList_.isEmpty())
     {
         Program* p = programList_.takeFirst();
@@ -84,7 +87,7 @@ void MainWindow::beginProgramDownload(bool refreshCache)
     }
 }
 
-MythGenericTree* MainWindow::createTree(const QList<Program*>& programs)
+MythGenericTree* MainWindow::createAlphabeticTree(const QList<Program*>& programs)
 {
     MythGenericTree* tree = new MythGenericTree(QString::fromUtf8("Program A-Ö"));
 
@@ -110,13 +113,47 @@ MythGenericTree* MainWindow::createTree(const QList<Program*>& programs)
     return tree;
 }
 
+MythGenericTree* MainWindow::createCategoryTree(const QList<Program*>& programs)
+{
+    MythGenericTree* tree = new MythGenericTree(QString::fromUtf8("Kategorier"));
+
+    QMultiMap<QString, Program*> categoryProgramMap;
+
+    for (int i = 0; i < programs.count(); ++i)
+    {
+        categoryProgramMap.insert(programs.at(i)->category, programs.at(i));
+    }
+
+    for (int i = 0; i < categoryProgramMap.uniqueKeys().count(); ++i)
+    {
+        QString category = categoryProgramMap.uniqueKeys().at(i);
+        QList<Program*> programsInCategory = categoryProgramMap.values(category);
+
+        MythGenericTree* categoryNode = new MythGenericTree(category);
+
+        for (int j = programsInCategory.count() - 1; j >= 0; --j)
+        {
+            Program* program = programsInCategory.at(j);
+            MythGenericTree* programNode = new MythGenericTree(program->title);
+            programNode->SetData(qVariantFromValue(program));
+
+            categoryNode->addNode(programNode);
+        }
+
+        tree->addNode(categoryNode);
+    }
+
+    return tree;
+}
+
 void MainWindow::populateTree()
 {
     programList_ = programListCache_->programs();
 
     MythGenericTree* root = new MythGenericTree("Program A-Ö");
 
-    root->addNode(createTree(programList_));
+    root->addNode(createAlphabeticTree(programList_));
+    root->addNode(createCategoryTree(programList_));
 
     programTree_->AssignTree(root);
 

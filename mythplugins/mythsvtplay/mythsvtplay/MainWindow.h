@@ -44,7 +44,8 @@ public slots:
 private:
     MainWindow();
 
-    MythGenericTree* createTree(const QList<Program*>& programs);
+    MythGenericTree* createAlphabeticTree(const QList<Program*>& programs);
+    MythGenericTree* createCategoryTree(const QList<Program*>& programs);
 
     MythUIButtonTree* programTree_;
 

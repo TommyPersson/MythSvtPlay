@@ -366,10 +366,12 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
         }
         else if (action == "LEFT")
         {
+            savedListPosition_ = 0;
             SetFocusWidget(episodeTypeList_);
         }
         else if (action == "RIGHT")
         {
+            savedListPosition_ = 0;
             SetFocusWidget(episodeTypeList_);
         }
         else
