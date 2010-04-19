@@ -26,6 +26,12 @@ ProgramListCache::ProgramListCache()
 ProgramListCache::~ProgramListCache()
 {
     delete programListBuilder_;
+
+    while(!programCache_.isEmpty())
+    {
+        Program* p = programCache_.takeFirst();
+        delete p;
+    }
 }
 
 void ProgramListCache::refresh()
@@ -77,7 +83,7 @@ void ProgramListCache::load()
     }
 }
 
-void ProgramListCache::onProgramListBuilt(QList<Program*> programs)
+void ProgramListCache::onProgramListBuilt(const QList<Program*>& programs)
 {
     programCache_ = programs;
     store();

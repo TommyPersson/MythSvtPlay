@@ -24,7 +24,8 @@ HEADERS += MainWindow.h \
     ProgressDialog.h \
     ProgramListCache.h \
     IMediaPlayer.h \
-    RtmpMediaPlayer.h
+    RtmpMediaPlayer.h \
+    FavoritesStore.h
 SOURCES += main.cpp \
     MainWindow.cpp \
     ProgramListBuilder.cpp \
@@ -36,7 +37,8 @@ SOURCES += main.cpp \
     ProgramListCache.cpp \
     Program.cpp \
     Episode.cpp \
-    RtmpMediaPlayer.cpp
+    RtmpMediaPlayer.cpp \
+    FavoritesStore.cpp
 
 macx:QMAKE_LFLAGS += -flat_namespace \
     -undefined \

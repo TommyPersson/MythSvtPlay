@@ -80,7 +80,7 @@ file (I suggest library.xml or mainmenu.xml) by adding the following:
 Usage
 -----
 
-__Refreshing the program cache__:
+__Refreshing the program cache:__
 
 The first time the plugin loads, it will download basic information on
 all programs available on SVT Play. This information is cached and
@@ -88,6 +88,17 @@ used whenever the plugin is started later. If you wish to refresh this
 cache (for example when SVT introduces new shows) simply press MENU
 (m) on the main menu. A dialog will popup and ask you to confirm the
 refresh.
+
+__Marking favorites:__
+
+It is possible to mark programs as favorites in the main program
+menu. Simply go to a program of your choice and press RECORD (r) and
+it will be added to the favorites menu item. Press RECORD (r) again to
+unmark it. 
+
+Unfortunately this marking is not reflected on the program menu items
+yet. This issue is purely visual however, the functionality is there
+and I will fix it when I rework the UI.
 
 Known Issues / Bugs
 -------------------
@@ -97,9 +108,10 @@ Known Issues / Bugs
   downloaded. This will result in mplayer quitting early, before the
   stream has been played through completely.
 
+* The favorite marking issue mentioned above.
+
 Todo
 ----
 
 * Redo the main menu ui
 * Allow searching
-* Allow marking shows as favorites

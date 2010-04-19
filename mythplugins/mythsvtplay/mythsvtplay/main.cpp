@@ -25,6 +25,8 @@ int mythplugin_init(const char *libversion)
         return -1;
     }
 
+    GetMythMainWindow()->BindKey("MainWindow", "FAVORITE", "R");
+
     return 0;
 }
 

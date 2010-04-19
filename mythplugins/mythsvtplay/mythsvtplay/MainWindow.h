@@ -5,6 +5,7 @@
 
 #include "ProgressDialog.h"
 #include "ImageLoader.h"
+#include "FavoritesStore.h"
 
 class MythGenericTree;
 class MythUIButtonTree;
@@ -46,8 +47,10 @@ private:
 
     MythGenericTree* createAlphabeticTree(const QList<Program*>& programs);
     MythGenericTree* createCategoryTree(const QList<Program*>& programs);
+    MythGenericTree* createFavoritesTree(const QList<Program*>& programs);
 
     MythUIButtonTree* programTree_;
+    MythGenericTree* programTreeData_;
 
     MythUIImage* programLogoImage_;
     MythUIText* programTitleText_;
@@ -62,6 +65,7 @@ private:
     ProgramListCache* programListCache_;
 
     ImageLoader imageLoader_;
+    FavoritesStore favoritesStore_;
 };
 
 #endif // MAINWINDOW_H

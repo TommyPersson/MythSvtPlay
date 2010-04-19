@@ -7,6 +7,7 @@
 #include <mythtv/libmythui/mythsystem.h>
 #include <mythtv/libmythui/mythprogressdialog.h>
 #include <mythtv/libmythui/mythuibuttontree.h>
+#include <mythtv/libmythui/mythuibuttonlist.h>
 #include <mythtv/libmythui/mythdialogbox.h>
 
 #include "Episode.h"
@@ -50,16 +51,11 @@ MainWindow::MainWindow(MythScreenStack *parentStack)
 
 MainWindow::~MainWindow()
 {
+    programList_.clear();
     delete programListCache_;
 
     programTree_->DeleteAllChildren();
     delete programTree_;
-
-    while(!programList_.isEmpty())
-    {
-        Program* p = programList_.takeFirst();
-        delete p;
-    }
 }
 
 void MainWindow::beginProgramDownload(bool refreshCache)
@@ -146,16 +142,35 @@ MythGenericTree* MainWindow::createCategoryTree(const QList<Program*>& programs)
     return tree;
 }
 
+MythGenericTree* MainWindow::createFavoritesTree(const QList<Program*>& programs)
+{
+    MythGenericTree* tree = new MythGenericTree(QString::fromUtf8("Favoriter"));
+
+    for (int i = 0; i < programs.count(); ++i)
+    {
+        if (favoritesStore_.favorites().contains(programs.at(i)->title))
+        {
+            MythGenericTree* programNode = new MythGenericTree(programs.at(i)->title);
+            programNode->SetData(qVariantFromValue(programs.at(i)));
+
+            tree->addNode(programNode);
+        }
+    }
+
+    return tree;
+}
+
 void MainWindow::populateTree()
 {
     programList_ = programListCache_->programs();
 
-    MythGenericTree* root = new MythGenericTree("Program A-Ö");
+    programTreeData_ = new MythGenericTree("Program A-Ö");
 
-    root->addNode(createAlphabeticTree(programList_));
-    root->addNode(createCategoryTree(programList_));
+    programTreeData_->addNode(createAlphabeticTree(programList_));
+    programTreeData_->addNode(createCategoryTree(programList_));
+    programTreeData_->addNode(createFavoritesTree(programList_));
 
-    programTree_->AssignTree(root);
+    programTree_->AssignTree(programTreeData_);
 
     if (progressDialog_)
     {
@@ -171,21 +186,23 @@ void MainWindow::onListButtonClicked(MythUIButtonListItem *item)
     QVariant itemData = node->GetData();
     Program* program = itemData.value<Program*>();
 
-    //busyDialog_ = ShowBusyPopup("Downloading episode data ...");
+    if (program != NULL)
+    {
+        ProgramWindow* window = new ProgramWindow(GetScreenStack(), program);
+        GetScreenStack()->AddScreen(window);
+    }
 
-    ProgramWindow* window = new ProgramWindow(GetScreenStack(), program);
-    GetScreenStack()->AddScreen(window);
 }
 
 void MainWindow::onListButtonSelected(MythUIButtonListItem *item)
 {
     MythGenericTree* node = item->GetData().value<MythGenericTree*>();
 
-    if (node->childCount() == 0)
-    {
-        QVariant itemData = node->GetData();
-        Program* program = itemData.value<Program*>();
+    QVariant itemData = node->GetData();
+    Program* program = itemData.value<Program*>();
 
+    if (program != NULL)
+    {
         programTitleText_->SetText(program->title);
         programDescriptionText_->SetText(program->description);
 
@@ -228,10 +245,11 @@ void MainWindow::onRefreshDialogResult(bool result)
 
 bool MainWindow::keyPressEvent(QKeyEvent *event)
 {
-    if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
+    bool handled = false;
+
+    if (!handled && GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
         return true;
 
-    bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("MainWindow", event, actions);
 
@@ -253,6 +271,42 @@ bool MainWindow::keyPressEvent(QKeyEvent *event)
                              this, SLOT(onRefreshDialogResult(bool)));
 
             GetScreenStack()->AddScreen(confirmCacheRefreshDialog_);
+        }
+        else if (action == "FAVORITE")
+        {
+            MythGenericTree* currentNode = programTree_->GetCurrentNode();
+
+            QVariant itemData = currentNode->GetData();
+            Program* program = itemData.value<Program*>();
+
+            if (program != NULL)
+            {
+                MythGenericTree* favoritesNode = programTreeData_->getChildByName("Favoriter");
+
+                if (favoritesStore_.favorites().contains(program->title))
+                {
+                    favoritesStore_.remove(program->title);
+
+                    MythGenericTree* nodeToRemove = favoritesNode->getChildByName(program->title);
+
+                    if (nodeToRemove == currentNode)
+                    {
+                        programTree_->RemoveCurrentItem(true);
+                    }
+                    else
+                    {
+                        favoritesNode->removeNode(nodeToRemove);
+                    }
+                }
+                else
+                {
+                    favoritesStore_.add(program->title);
+
+                    favoritesNode->deleteAllChildren();
+                    programTreeData_->removeNode(favoritesNode);
+                    programTreeData_->addNode(createFavoritesTree(programList_));
+                }
+            }
         }
         else
             handled = false;

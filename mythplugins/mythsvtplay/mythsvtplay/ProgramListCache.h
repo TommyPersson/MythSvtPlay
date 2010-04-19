@@ -32,7 +32,7 @@ signals:
     void cacheFilled();
 
 public slots:
-    void onProgramListBuilt(QList<Program*>);
+    void onProgramListBuilt(const QList<Program*>&);
 
 private:
     void store();
