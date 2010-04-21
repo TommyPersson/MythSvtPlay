@@ -23,7 +23,7 @@ MainWindow::MainWindow(MythScreenStack *parentStack)
       progressDialog_(NULL),
       programListCache_(new ProgramListCache())
 {
-    if (!LoadWindowFromXML("svtplay-ui.xml", "main", this))
+    if (!LoadWindowFromXML("mythsvtplay/svtplay-ui.xml", "main", this))
     {
         throw "Could not load svtplay-ui.xml";
     }
@@ -258,7 +258,7 @@ bool MainWindow::keyPressEvent(QKeyEvent *event)
         QString action = actions[i];
         handled = true;
 
-        if (action == "ESCAPE")
+        if (action == "ESCAPE" || action == "LEFT")
         {
             Close();
         }

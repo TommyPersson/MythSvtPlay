@@ -97,13 +97,47 @@
       <area>100,160,1080,40</area>
       <layout>horizontal</layout>
       <spacing>5</spacing>      
-      <buttonarea>0,0,100%,100%</buttonarea>
-      <!-- Don't want these... -->
+      <buttonarea>0,0,1060,60</buttonarea>
+      <statetype name="buttonitem">
+        <state name="active">
+          <area>0,5,200,60</area>
+          <shape name="background" from="basewidgetshape">
+              <area>0,0,200,30</area>
+              <cornerradius>15</cornerradius>
+          </shape>
+          <textarea name="buttontext">
+              <area>15,0,170,30</area>
+              <font>basesmall</font>
+              <cutdown>yes</cutdown>
+              <align>left,vcenter</align>
+          </textarea>
+          <imagetype name="busy-animation-image">
+            <area>180, 20, 15, 15</area>
+            <filepattern low="0" high="24"></filepattern>
+            <delay>50</delay>
+          </imagetype>
+        </state>
+        <state name="selected" from="active">
+          <shape name="buttonbackground" from="baseselectedwidgetshape">
+            <area>0,0,200,30</area>
+            <cornerradius>15</cornerradius>
+          </shape>
+        </state>
+        <state name="inactive" from="active">
+          <shape name="buttonbackground" from="baseselectedwidgetshape">
+            <area>0,0,200,30</area>
+            <cornerradius>15</cornerradius>
+          </shape>
+          <textarea name="buttontext">
+            <font>basesmallgrey</font>
+          </textarea>
+        </state>
+      </statetype>
       <statetype name="downscrollarrow">
-        <position>10000,10000</position>
+        <position>1088,10</position>
       </statetype>
       <statetype name="upscrollarrow">
-        <position>10000,10000</position>
+        <position>-20,10</position>
       </statetype>
     </buttonlist>
 

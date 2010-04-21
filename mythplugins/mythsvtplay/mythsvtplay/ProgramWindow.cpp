@@ -23,11 +23,10 @@
 ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     : MythScreenType(parentStack, "ProgramWindow"),
       program_(program),
-      savedListPosition_(0),
       progressDialog_(NULL),
       mediaPlayer_(NULL)
 {
-    if (!LoadWindowFromXML("svtplay-ui.xml", "program-view", this))
+    if (!LoadWindowFromXML("mythsvtplay/svtplay-ui.xml", "program-view", this))
     {
         throw "Could not load svtplay-ui.xml";
     }
@@ -78,18 +77,23 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     for (int i = 0; i < program->episodeTypeLinks.size(); ++i)
     {
         QString link = program->link + program->episodeTypeLinks.at(i).second;
+        QString episodeType = program->episodeTypeLinks.at(i).first;
+
         EpisodeListBuilder* builder = new EpisodeListBuilder(
-                                            program->episodeTypeLinks.at(i).first,
+                                            episodeType,
                                             QUrl("http://svtplay.se" + link));
 
-        episodeBuilders_[program->episodeTypeLinks.at(i).first] = builder;
+        episodeBuilders_[episodeType] = builder;
 
         QObject::connect(builder, SIGNAL(episodesReady(QString)),
                          this, SLOT(onEpisodesReady(QString)));
 
         builder->buildEpisodeList();
+
+        addBusyImage(episodeType);
     }
 
+    BuildFocusList();
     SetFocusWidget(episodeTypeList_);
 }
 
@@ -111,13 +115,120 @@ void ProgramWindow::onEpisodesReady(const QString& episodeType)
 {
     QList<Episode*> episodes = episodeBuilders_[episodeType]->episodeList();
 
+    removeBusyImage(episodeType);
+
     program_->episodesByType[episodeType] = episodes;
+
+    if (episodeTypeList_->GetItemCurrent()->GetText() == episodeType)
+    {
+        populateEpisodeList();
+    }
+}
+
+
+void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
+{
+    if (item->GetText() == QString::fromUtf8("Hämta fler ..."))
+    {
+        episodeBuilders_[selectedEpisodeType_]->buildEpisodeList();
+
+        item->SetText(QString::fromUtf8("Hämtar ..."));
+
+        addBusyImage(selectedEpisodeType_);
+
+        return;
+    }
+    else if (item->GetText() == QString::fromUtf8("Hämtar ..."))
+        return;
+
+    QVariant itemData = item->GetData();
+
+    Episode* episode = itemData.value<Episode*>();
+
+    setupMediaPlayer(episode);
+}
+
+void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
+{
+    if (item->GetText() == QString::fromUtf8("Hämta fler ...") ||
+        item->GetText() == QString::fromUtf8("Hämtar ..."))
+    {
+        episodePreviewImage_->Reset();
+        episodeDescriptionText_->SetText("");
+        episodeTitleText_->SetText("");
+        episodeAvailableToDateText_->SetText("");
+
+        Refresh();
+
+        return;
+    }
+
+    QVariant itemData = item->GetData();
+
+    Episode* episode = itemData.value<Episode*>();
+
+    episodePreviewImage_->SetFilename(episode->episodeImageFilepath);
+    imageLoader_.loadImage(episodePreviewImage_);
+
+    episodeDescriptionText_->SetText(episode->description);
+    episodeTitleText_->SetText(episode->title);
+    episodeAvailableToDateText_->SetText(episode->availableUntilDate);
+
+    Refresh();
+}
+
+void ProgramWindow::onEpisodeTypeSelected(MythUIButtonListItem* item)
+{
+    selectedEpisodeType_ = item->GetText();
 
     populateEpisodeList();
 }
 
+void ProgramWindow::onCancelClicked()
+{
+    closeProgressDialog();
+
+    stopMediaPlayer();
+}
+
+void ProgramWindow::onImageReady(MythUIImage* image)
+{
+    image->Load();
+}
+
+void ProgramWindow::onCacheFilledPercentChange(int percent)
+{
+    if (progressDialog_)
+    {
+        progressDialog_->setProgress(percent);
+        progressDialog_->setStatusText(QString::number(percent) + "%");
+    }
+}
+
+void ProgramWindow::onCacheFilled()
+{
+    closeProgressDialog();
+}
+
+void ProgramWindow::onMediaPlayerDestroyed()
+{
+    mediaPlayer_ = NULL;
+}
+
+void ProgramWindow::onConnectionFailed()
+{
+    closeProgressDialog();
+
+    MythConfirmationDialog* dialog = new MythConfirmationDialog(GetScreenStack(), "Connection failed, please try again.", false);
+    dialog->Create();
+    GetScreenStack()->AddScreen(dialog);
+    return;
+}
+
 void ProgramWindow::populateEpisodeList()
 {
+    int previousPosition = episodeList_->GetCurrentPos();
+
     episodeList_->Reset();
 
     QList<Episode*> episodes = program_->episodesByType[selectedEpisodeType_];
@@ -140,7 +251,7 @@ void ProgramWindow::populateEpisodeList()
                     QVariant(selectedEpisodeType_));
         }
 
-        episodeList_->SetItemCurrent(savedListPosition_);
+        episodeList_->SetItemCurrent(previousPosition);
     }
     else if (episodeBuilders_[selectedEpisodeType_] != NULL)
     {
@@ -200,90 +311,7 @@ void ProgramWindow::stopMediaPlayer()
     }
 }
 
-void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
-{
-    if (item->GetText() == QString::fromUtf8("Hämta fler ..."))
-    {
-        episodeBuilders_[selectedEpisodeType_]->buildEpisodeList();
-
-        savedListPosition_ = episodeList_->GetCurrentPos();
-
-        item->SetText(QString::fromUtf8("Hämtar ..."));
-
-        return;
-    }
-    else if (item->GetText() == QString::fromUtf8("Hämtar ..."))
-        return;
-
-    QVariant itemData = item->GetData();
-
-    Episode* episode = itemData.value<Episode*>();
-
-    setupMediaPlayer(episode);
-}
-
-void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
-{
-    if (item->GetText() == QString::fromUtf8("Hämta fler ...") ||
-        item->GetText() == QString::fromUtf8("Hämtar ..."))
-    {
-        episodePreviewImage_->Reset();
-        episodeDescriptionText_->SetText("");
-        episodeTitleText_->SetText("");
-        episodeAvailableToDateText_->SetText("");
-
-        Refresh();
-
-        return;
-    }
-
-    QVariant itemData = item->GetData();
-
-    Episode* episode = itemData.value<Episode*>();
-
-    episodePreviewImage_->SetFilename(episode->episodeImageFilepath);
-    imageLoader_.loadImage(episodePreviewImage_);
-
-    episodeDescriptionText_->SetText(episode->description);
-    episodeTitleText_->SetText(episode->title);
-    episodeAvailableToDateText_->SetText(episode->availableUntilDate);
-
-    Refresh();
-}
-
-void ProgramWindow::onEpisodeTypeSelected(MythUIButtonListItem* item)
-{
-    selectedEpisodeType_ = item->GetText();
-
-    populateEpisodeList();
-}
-
-void ProgramWindow::onCancelClicked()
-{
-    if (progressDialog_)
-    {
-        progressDialog_->Close();
-        progressDialog_ = NULL;
-    }
-
-    stopMediaPlayer();
-}
-
-void ProgramWindow::onImageReady(MythUIImage* image)
-{
-    image->Load();
-}
-
-void ProgramWindow::onCacheFilledPercentChange(int percent)
-{
-    if (progressDialog_)
-    {
-        progressDialog_->setProgress(percent);
-        progressDialog_->setStatusText(QString::number(percent) + "%");
-    }
-}
-
-void ProgramWindow::onCacheFilled()
+void ProgramWindow::closeProgressDialog()
 {
     if (progressDialog_)
     {
@@ -292,23 +320,30 @@ void ProgramWindow::onCacheFilled()
     }
 }
 
-void ProgramWindow::onMediaPlayerDestroyed()
+void ProgramWindow::addBusyImage(const QString& episodeType)
 {
-    mediaPlayer_ = NULL;
+    // Another thing missing from the MythTV API: MythUIButtonList::GetItemByText()
+
+    QString current = selectedEpisodeType_;
+
+    episodeTypeList_->MoveToNamedPosition(episodeType);
+    episodeTypeList_->GetItemCurrent()->SetImage("busyimages/%1.png", "busy-animation-image", true);
+
+    selectedEpisodeType_ = current;
+
+    episodeTypeList_->MoveToNamedPosition(current);
 }
 
-void ProgramWindow::onConnectionFailed()
+void ProgramWindow::removeBusyImage(const QString& episodeType)
 {
-    if (progressDialog_)
-    {
-        progressDialog_->Close();
-        progressDialog_ = NULL;
-    }
+    QString current = selectedEpisodeType_;
 
-    MythConfirmationDialog* dialog = new MythConfirmationDialog(GetScreenStack(), "Connection failed, please try again.", false);
-    dialog->Create();
-    GetScreenStack()->AddScreen(dialog);
-    return;
+    episodeTypeList_->MoveToNamedPosition(episodeType);
+    episodeTypeList_->GetItemCurrent()->SetImage("mythsvtplay/images/invisible%1.png", "busy-animation-image", true);
+
+    selectedEpisodeType_ = current;
+
+    episodeTypeList_->MoveToNamedPosition(current);
 }
 
 bool ProgramWindow::keyPressEvent(QKeyEvent *event)
@@ -330,49 +365,7 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
 
         if (action == "ESCAPE")
         {
-            // Hopefully temporary fix to prevent crash when closing
-            // the window precisely when signals are received in the downloader.
-            bool allowEscape = true;
-            for (int j = 0; j < episodeBuilders_.values().size(); ++j)
-            {
-                if (episodeBuilders_.values().at(j)->isBusy())
-                {
-                    allowEscape = false;
-                }
-            }
-
-            if (allowEscape)
-            {
-                if (progressDialog_ != NULL && progressDialog_->IsVisible())
-                {
-                    stopMediaPlayer();
-                    progressDialog_->Close();
-                    progressDialog_ = NULL;
-                }
-                else
-                {
-                    Close();
-                }
-            }
-        }
-        else if (action == "UP")
-        {
-            savedListPosition_ = 0;
-            SetFocusWidget(episodeTypeList_);
-        }
-        else if (action == "DOWN")
-        {
-            SetFocusWidget(episodeList_);
-        }
-        else if (action == "LEFT")
-        {
-            savedListPosition_ = 0;
-            SetFocusWidget(episodeTypeList_);
-        }
-        else if (action == "RIGHT")
-        {
-            savedListPosition_ = 0;
-            SetFocusWidget(episodeTypeList_);
+            doClose();
         }
         else
             handled = false;
@@ -382,4 +375,32 @@ bool ProgramWindow::keyPressEvent(QKeyEvent *event)
         handled = true;
 
     return handled;
+}
+
+void ProgramWindow::doClose()
+{
+    // Hopefully temporary fix to prevent crash when closing
+    // the window precisely when signals are received in the downloader.
+    bool allowEscape = true;
+    for (int j = 0; j < episodeBuilders_.values().size(); ++j)
+    {
+        if (episodeBuilders_.values().at(j)->isBusy())
+        {
+            allowEscape = false;
+        }
+    }
+
+    if (allowEscape)
+    {
+        if (progressDialog_ != NULL && progressDialog_->IsVisible())
+        {
+            stopMediaPlayer();
+            progressDialog_->Close();
+            progressDialog_ = NULL;
+        }
+        else
+        {
+            Close();
+        }
+    }
 }

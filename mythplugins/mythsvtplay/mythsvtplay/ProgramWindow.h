@@ -52,11 +52,15 @@ private:
 
     void setupMediaPlayer(Episode*);
     void stopMediaPlayer();
+    void closeProgressDialog();
+
+    void addBusyImage(const QString& episodeType);
+    void removeBusyImage(const QString& episodeType);
+
+    void doClose();
 
     Program* program_;
     QMap<QString, EpisodeListBuilder*> episodeBuilders_;
-
-    int savedListPosition_;
 
     QString selectedEpisodeType_;
 

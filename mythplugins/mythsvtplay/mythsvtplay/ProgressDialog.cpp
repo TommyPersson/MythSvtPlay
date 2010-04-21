@@ -12,7 +12,7 @@ ProgressDialog::ProgressDialog(MythScreenStack *parentStack, const char* name, c
     total_(100),
     progress_(0)
 {
-    if (!LoadWindowFromXML("svtplay-ui.xml", "cancellable-progress-dialog", this))
+    if (!LoadWindowFromXML("mythsvtplay/svtplay-ui.xml", "cancellable-progress-dialog", this))
     {
         throw "Could not load svtplay-ui.xml";
     }
