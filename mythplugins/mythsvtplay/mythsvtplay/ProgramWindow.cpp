@@ -324,26 +324,30 @@ void ProgramWindow::addBusyImage(const QString& episodeType)
 {
     // Another thing missing from the MythTV API: MythUIButtonList::GetItemByText()
 
-    QString current = selectedEpisodeType_;
+    QString currentType = selectedEpisodeType_;
+    int currentPosition = episodeList_->GetCurrentPos();
 
     episodeTypeList_->MoveToNamedPosition(episodeType);
     episodeTypeList_->GetItemCurrent()->SetImage("busyimages/%1.png", "busy-animation-image", true);
 
-    selectedEpisodeType_ = current;
+    selectedEpisodeType_ = currentType;
 
-    episodeTypeList_->MoveToNamedPosition(current);
+    episodeTypeList_->MoveToNamedPosition(currentType);
+    episodeList_->SetItemCurrent(currentPosition);
 }
 
 void ProgramWindow::removeBusyImage(const QString& episodeType)
 {
-    QString current = selectedEpisodeType_;
+    QString currentType = selectedEpisodeType_;
+    int currentPosition = episodeList_->GetCurrentPos();
 
     episodeTypeList_->MoveToNamedPosition(episodeType);
     episodeTypeList_->GetItemCurrent()->SetImage("mythsvtplay/images/invisible%1.png", "busy-animation-image", true);
 
-    selectedEpisodeType_ = current;
+    selectedEpisodeType_ = currentType;
 
-    episodeTypeList_->MoveToNamedPosition(current);
+    episodeTypeList_->MoveToNamedPosition(currentType);
+    episodeList_->SetItemCurrent(currentPosition);
 }
 
 bool ProgramWindow::keyPressEvent(QKeyEvent *event)
