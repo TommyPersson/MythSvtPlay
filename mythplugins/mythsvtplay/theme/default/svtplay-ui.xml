@@ -116,18 +116,15 @@
             <delay>50</delay>
           </imagetype>
         </state>
-        <state name="selected" from="active">
+        <state name="selectedactive" from="active">
           <shape name="buttonbackground" from="baseselectedwidgetshape">
             <area>0,0,200,30</area>
           </shape>
         </state>
-        <state name="inactive" from="active">
+        <state name="selectedinactive" from="active">
           <shape name="buttonbackground" from="baseselectedwidgetshape">
             <area>0,0,200,30</area>
           </shape>
-          <textarea name="buttontext">
-            <font>basesmallgrey</font>
-          </textarea>
         </state>
       </statetype>
       <statetype name="downscrollarrow">
