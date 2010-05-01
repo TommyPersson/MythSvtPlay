@@ -1,4 +1,4 @@
-#include "MediaPlayer.h"
+#include "PlainMediaPlayer.h"
 
 #include <iostream>
 
@@ -12,7 +12,7 @@ bool matchesStatusLine(QString string)
            string.contains("ct:");
 }
 
-MediaPlayer::MediaPlayer()
+PlainMediaPlayer::PlainMediaPlayer()
     : episode_(NULL),
       mplayerState_(FILLING_CACHE),
       monitorCache_(false),
@@ -33,9 +33,9 @@ MediaPlayer::MediaPlayer()
                      this, SLOT(deleteLater()));
 }
 
-void MediaPlayer::run()
+void PlainMediaPlayer::run()
 {    
-    QUrl mediaUrl = episode_->mediaUrls["flv"].toString() != ""
+    QUrl mediaUrl = !episode_->mediaUrls["flv"].toString().isEmpty()
                        ? episode_->mediaUrls["flv"]
                        : episode_->mediaUrls["wmv"];
 
@@ -69,19 +69,19 @@ void MediaPlayer::run()
     emit playbackFinished();
 }
 
-bool MediaPlayer::canPlay(Episode *episode)
+bool PlainMediaPlayer::canPlay(Episode *episode)
 {
-    return (episode->mediaUrls["flv"].toString() != "" ||
-            episode->mediaUrls["wmv"].toString() != "");
+    return (!episode->mediaUrls["flv"].toString().isEmpty() ||
+            !episode->mediaUrls["wmv"].toString().isEmpty());
 }
 
-void MediaPlayer::loadEpisode(Episode* episode)
+void PlainMediaPlayer::loadEpisode(Episode* episode)
 {
     episode_ = episode;
     start();
 }
 
-void MediaPlayer::onDataAvailable()
+void PlainMediaPlayer::onDataAvailable()
 {
     QString data(playerProcess_.readLine(100));
 
@@ -189,7 +189,7 @@ void MediaPlayer::onDataAvailable()
     }
 }
 
-void MediaPlayer::onPlayerFinished(int exitCode)
+void PlainMediaPlayer::onPlayerFinished(int exitCode)
 {
     if (!quitting_ && mplayerState_ == FILLING_CACHE)
     {
@@ -202,7 +202,7 @@ void MediaPlayer::onPlayerFinished(int exitCode)
     }
 }
 
-void MediaPlayer::onDelayTimerTimeout()
+void PlainMediaPlayer::onDelayTimerTimeout()
 {
     monitorCache_ = true;
     playerProcess_.read(playerProcess_.bytesAvailable());

@@ -8,13 +8,13 @@
 #include "IMediaPlayer.h"
 #include "Episode.h"
 
-class MediaPlayer : public IMediaPlayer
+class PlainMediaPlayer : public IMediaPlayer
 {
     Q_OBJECT
 
 public:
-    MediaPlayer();
-    ~MediaPlayer() {}
+    PlainMediaPlayer();
+    ~PlainMediaPlayer() {}
 
     void loadEpisode(Episode* episode);
     

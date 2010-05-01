@@ -136,13 +136,13 @@ void RtmpMediaPlayer::run()
 
 bool RtmpMediaPlayer::canPlay(Episode* episode)
 {
-    if (episode->mediaUrls["rtmp"].toString() != "")
+    if (!episode->mediaUrls["rtmp"].toString().isEmpty())
     {
         return (isBinaryInPath("flvstreamer") ||
                 isBinaryInPath("rtmpdump"));
     }
 
-    if (episode->mediaUrls["rtmps"].toString() != "")
+    if (!episode->mediaUrls["rtmps"].toString().isEmpty())
     {
         return isBinaryInPath("rtmpdump");
     }

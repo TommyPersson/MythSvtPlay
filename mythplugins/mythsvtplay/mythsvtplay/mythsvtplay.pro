@@ -14,29 +14,29 @@ QT += sql \
 
 # Input
 HEADERS += MainWindow.h \
+    ProgramWindow.h \
+    ProgressDialog.h \
     ProgramListBuilder.h \
     EpisodeListBuilder.h \
     Episode.h \
     Program.h \
-    ProgramWindow.h \
-    MediaPlayer.h \
     ImageLoader.h \
-    ProgressDialog.h \
     ProgramListCache.h \
     IMediaPlayer.h \
+    PlainMediaPlayer.h \
     RtmpMediaPlayer.h \
     FavoritesStore.h
 SOURCES += main.cpp \
     MainWindow.cpp \
+    ProgramWindow.cpp \
+    ProgressDialog.cpp \
     ProgramListBuilder.cpp \
     EpisodeListBuilder.cpp \
-    ProgramWindow.cpp \
-    MediaPlayer.cpp \
     ImageLoader.cpp \
-    ProgressDialog.cpp \
     ProgramListCache.cpp \
     Program.cpp \
     Episode.cpp \
+    PlainMediaPlayer.cpp \
     RtmpMediaPlayer.cpp \
     FavoritesStore.cpp
 

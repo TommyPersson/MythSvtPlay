@@ -103,7 +103,6 @@
           <area>0,5,200,60</area>
           <shape name="background" from="basewidgetshape">
               <area>0,0,200,30</area>
-              <cornerradius>15</cornerradius>
           </shape>
           <textarea name="buttontext">
               <area>15,0,170,30</area>
@@ -120,13 +119,11 @@
         <state name="selected" from="active">
           <shape name="buttonbackground" from="baseselectedwidgetshape">
             <area>0,0,200,30</area>
-            <cornerradius>15</cornerradius>
           </shape>
         </state>
         <state name="inactive" from="active">
           <shape name="buttonbackground" from="baseselectedwidgetshape">
             <area>0,0,200,30</area>
-            <cornerradius>15</cornerradius>
           </shape>
           <textarea name="buttontext">
             <font>basesmallgrey</font>

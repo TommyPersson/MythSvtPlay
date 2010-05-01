@@ -3,7 +3,7 @@
 #include "Program.h"
 #include "ProgressDialog.h"
 #include "EpisodeListBuilder.h"
-#include "MediaPlayer.h"
+#include "PlainMediaPlayer.h"
 #include "RtmpMediaPlayer.h"
 
 #include <iostream>
@@ -270,9 +270,9 @@ void ProgramWindow::setupMediaPlayer(Episode* episode)
     {
         mediaPlayer_ = new RtmpMediaPlayer();
     }
-    else if (MediaPlayer::canPlay(episode))
+    else if (PlainMediaPlayer::canPlay(episode))
     {
-        mediaPlayer_ = new MediaPlayer();
+        mediaPlayer_ = new PlainMediaPlayer();
     }
     else
     {
