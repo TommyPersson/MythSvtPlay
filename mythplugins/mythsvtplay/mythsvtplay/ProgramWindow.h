@@ -45,7 +45,7 @@ public slots:
     void onMediaPlayerDestroyed();
     void onConnectionFailed();
 
-    void onImageReady(MythUIImage*);
+    void onImageReady();
 
 private:
     void populateEpisodeList();
