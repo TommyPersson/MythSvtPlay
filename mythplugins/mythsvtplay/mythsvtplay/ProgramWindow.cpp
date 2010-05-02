@@ -52,16 +52,14 @@ ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
     QObject::connect(episodeTypeList_, SIGNAL(itemSelected(MythUIButtonListItem*)),
                      this, SLOT(onEpisodeTypeSelected(MythUIButtonListItem*)));
 
-    QObject::connect(&imageLoader_, SIGNAL(imageReady(MythUIImage*)),
-                     this, SLOT(onImageReady(MythUIImage*)));
+    QObject::connect(&imageLoader_, SIGNAL(imageReady()),
+                     this, SLOT(onImageReady()));
 
     programTitleText_->SetText(program->title);
     programDescriptionText_->SetText(program->description);
 
     programLogoImage_->SetFilename(program->logoFilepath);
-
-    imageLoader_.loadImage(programLogoImage_);
-    imageLoader_.start();
+    programLogoImage_->Load();
 
     episodeTypeList_->Reset();
 
@@ -121,7 +119,7 @@ void ProgramWindow::onEpisodesReady(const QString& episodeType)
 
     if (episodeTypeList_->GetItemCurrent()->GetText() == episodeType)
     {
-        populateEpisodeList();
+       populateEpisodeList();
     }
 }
 
@@ -167,8 +165,9 @@ void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
 
     Episode* episode = itemData.value<Episode*>();
 
+    episodePreviewImage_->Reset();
     episodePreviewImage_->SetFilename(episode->episodeImageFilepath);
-    imageLoader_.loadImage(episodePreviewImage_);
+    imageLoader_.loadImage(episodePreviewImage_->GetFilename());
 
     episodeDescriptionText_->SetText(episode->description);
     episodeTitleText_->SetText(episode->title);
@@ -191,9 +190,9 @@ void ProgramWindow::onCancelClicked()
     stopMediaPlayer();
 }
 
-void ProgramWindow::onImageReady(MythUIImage* image)
+void ProgramWindow::onImageReady()
 {
-    image->Load();
+    episodePreviewImage_->Load();
 }
 
 void ProgramWindow::onCacheFilledPercentChange(int percent)
