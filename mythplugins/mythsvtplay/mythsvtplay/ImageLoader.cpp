@@ -2,39 +2,39 @@
 
 #include <QFile>
 
-#include <mythuiimage.h>
-
 ImageLoader::ImageLoader()
-{}
-
-void ImageLoader::loadImage(MythUIImage* image)
 {
-    lock_.lockForWrite();
-    images_.push_back(image);
-    lock_.unlock();
+    QObject::connect(&checkTimer_, SIGNAL(timeout()), this, SLOT(onCheckTimerTimeout()));
+}
 
-    start();
+void ImageLoader::loadImage(const QString& imageFilename)
+{
+    quit();
+
+    imageFilename_ = imageFilename;
+
+    if (QFile::exists(imageFilename_))
+    {
+        emit imageReady();
+    }
+    else
+    {
+        start();
+    }
 }
 
 void ImageLoader::run()
 {
-    while(!images_.isEmpty())
+    checkTimer_.start(200);
+    exec();
+    checkTimer_.stop();
+}
+
+void ImageLoader::onCheckTimerTimeout()
+{
+    if (QFile::exists(imageFilename_))
     {
-        int failCount = 0;
-
-        lock_.lockForRead();
-        MythUIImage* image = images_.takeFirst();
-        lock_.unlock();
-
-        while(!QFile::exists(image->GetFilename()) && failCount < 10)
-        {
-            // File not downloaded yet
-            failCount++;
-            sleep(1);
-        }
-
-        setTerminationEnabled(false);
-        emit imageReady(image);
-        setTerminationEnabled(true);
+        emit imageReady();
+        quit();
     }
 }

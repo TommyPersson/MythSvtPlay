@@ -2,10 +2,7 @@
 #define IMAGELOADER_H
 
 #include <QThread>
-#include <QReadWriteLock>
-#include <QList>
-
-class MythUIImage;
+#include <QTimer>
 
 class ImageLoader : public QThread
 {
@@ -14,16 +11,19 @@ class ImageLoader : public QThread
 public:
     ImageLoader();
 
-    void loadImage(MythUIImage* image);
+    void loadImage(const QString& imageFilename);
 
     void run();
 
 signals:
-    void imageReady(MythUIImage*);
+    void imageReady();
+
+private slots:
+    void onCheckTimerTimeout();
 
 private:
-    QList<MythUIImage*> images_;
-    QReadWriteLock lock_;
+    QString imageFilename_;
+    QTimer checkTimer_;
 };
 
 #endif // IMAGELOADER_H
