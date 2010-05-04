@@ -4,7 +4,6 @@
 #include <mythscreentype.h>
 
 #include "ProgressDialog.h"
-#include "ImageLoader.h"
 #include "FavoritesStore.h"
 
 class MythGenericTree;
@@ -64,7 +63,6 @@ private:
 
     ProgramListCache* programListCache_;
 
-    ImageLoader imageLoader_;
     FavoritesStore favoritesStore_;
 };
 

@@ -1,6 +1,7 @@
 #ifndef PROGRAMLISTBUILDER_H
 #define PROGRAMLISTBUILDER_H
 
+#include <QMap>
 #include <QObject>
 #include <QNetworkAccessManager>
 
@@ -56,6 +57,8 @@ private:
     QList<QNetworkReply*> imageDownloadQueue_;
 
     int programsComplete_;
+
+    QMap<QString, int> failedDownloadCount_;
 
     QList<Program*> programs_;
 };
