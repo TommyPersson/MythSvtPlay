@@ -43,9 +43,6 @@ MainWindow::MainWindow(MythScreenStack *parentStack)
     QObject::connect(programTree_, SIGNAL(itemSelected(MythUIButtonListItem*)),
                      this, SLOT(onListButtonSelected(MythUIButtonListItem*)));
 
-    QObject::connect(&imageLoader_, SIGNAL(imageReady(MythUIImage*)),
-                     this, SLOT(onImageReady(MythUIImage*)));
-
     BuildFocusList();
 }
 

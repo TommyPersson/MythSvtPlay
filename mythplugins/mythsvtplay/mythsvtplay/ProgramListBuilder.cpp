@@ -181,28 +181,41 @@ void ProgramListBuilder::doDownloadFsm()
                     QDomDocument doc;
                     if (!doc.setContent(reply->readAll()))
                     {
-                        QUrl url("http://svtplay.se" + program->link);
-                        QNetworkRequest request(url);
-                        request.setAttribute(QNetworkRequest::User, qVariantFromValue(program));
-
-                        QNetworkReply* showReply = programListDownloader_.get(request);
-
-                        pendingReplies_.push_back(showReply);
-
                         reply->deleteLater();
+
+                        failedDownloadCount_[program->title]++;
 
                         std::cerr << "Failed to download: " << std::endl;
                         std::cerr << reply->url().toString().toStdString() << std::endl;
-                        std::cerr << "Retrying ..." << std::endl;
 
-                        return;
+                        if (failedDownloadCount_[program->title] > 5)
+                        {
+                            std::cerr << "Giving up" << std::endl;
+
+                            programs_.removeOne(program);
+                        }
+                        else
+                        {
+                            std::cerr << "Retrying (" << failedDownloadCount_[program->title] << ") ..."  << std::endl;
+
+                            QUrl url("http://svtplay.se" + program->link);
+                            QNetworkRequest request(url);
+                            request.setAttribute(QNetworkRequest::User, qVariantFromValue(program));
+
+                            QNetworkReply* showReply = programListDownloader_.get(request);
+
+                            pendingReplies_.push_back(showReply);
+
+                            return;
+                        }
                     }
+                    else
+                    {
+                        reply->deleteLater();
 
-                    fillOtherProgramInfo(program, doc);
-
-                    reply->deleteLater();
+                        fillOtherProgramInfo(program, doc);
+                    }
                 }
-
 
                 programsComplete_ = 0;
 
