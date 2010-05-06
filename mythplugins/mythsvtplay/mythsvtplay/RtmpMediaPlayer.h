@@ -4,7 +4,6 @@
 #include "IMediaPlayer.h"
 
 #include <QProcess>
-#include <QTimer>
 
 class RtmpMediaPlayer : public IMediaPlayer
 {
@@ -21,7 +20,6 @@ public:
     static bool canPlay(Episode* episode);
 
 public slots:
-    void onPlayerDataAvailable();
     void onDumperDataAvailable();
 
     void onPlayerFinished(int);
@@ -43,8 +41,6 @@ private:
     DumperState dumperState_;
 
     int dumperCacheLength_;
-
-    QTimer checkCacheTimer_;
 
     bool quitting_;
 };
