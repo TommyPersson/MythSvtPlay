@@ -67,16 +67,11 @@ RtmpMediaPlayer::RtmpMediaPlayer()
 
     QObject::connect(&playerProcess_, SIGNAL(finished(int)),
                      this, SLOT(onPlayerFinished(int)));
-    QObject::connect(&playerProcess_, SIGNAL(readyRead()),
-                     this, SLOT(onPlayerDataAvailable()));
 
     QObject::connect(&dumperProcess_, SIGNAL(readyRead()),
                      this, SLOT(onDumperDataAvailable()));
     QObject::connect(&dumperProcess_, SIGNAL(finished(int)),
                      this, SLOT(onDumperFinished(int)));
-
-    QObject::connect(&checkCacheTimer_, SIGNAL(timeout()),
-                     this, SLOT(onCheckCacheTimeout()));
 
     QObject::connect(this, SIGNAL(finished()),
                      this, SLOT(deleteLater()));
@@ -166,7 +161,6 @@ void RtmpMediaPlayer::startPlaying()
 
     playerProcess_.start("mplayer", playerArgs);
 
-    checkCacheTimer_.start(1000);
 }
 
 void RtmpMediaPlayer::stopPlaying()
@@ -175,35 +169,6 @@ void RtmpMediaPlayer::stopPlaying()
     playerProcess_.kill();
 
     gContext->sendPlaybackEnd();
-}
-
-void RtmpMediaPlayer::onPlayerDataAvailable()
-{
-    QString reply = playerProcess_.readLine(100);
-
-    if (dumperState_ != FINISHED && reply.contains("ANS_TIME_POSITION="))
-    {
-        int secsPos = (int) reply.mid(QString("ANS_TIME_POSITION=").length()).toFloat();
-
-        if (secsPos >= dumperCacheLength_ - 10)
-        {
-            QString osdString;
-            osdString = osdString + "osd_show_text \"Buffering for 10 seconds\" 9000\n";
-
-            playerProcess_.write(osdString.toAscii());
-            playerProcess_.write(osdString.toAscii());
-            playerProcess_.write("pause\n");
-
-            for (int i = 10; i > 0; --i)
-            {
-                std::cerr << "Buffering, remaning time: " << i << " seconds" << std::endl;
-                sleep(1);
-            }
-
-            playerProcess_.write("pause\n");
-            playerProcess_.read(playerProcess_.bytesAvailable());
-        }
-    }
 }
 
 
@@ -271,18 +236,4 @@ void RtmpMediaPlayer::onDumperFinished(int)
         emit connectionFailed();
         quit();
     }
-}
-
-void RtmpMediaPlayer::onCheckCacheTimeout()
-{
-    if (dumperState_ == FINISHED || !playerProcess_.isOpen())
-    {
-        checkCacheTimer_.stop();
-        return;
-    }
-
-    playerProcess_.read(playerProcess_.bytesAvailable());
-
-    playerProcess_.write("get_time_pos\n");
-    playerProcess_.waitForBytesWritten();
 }
