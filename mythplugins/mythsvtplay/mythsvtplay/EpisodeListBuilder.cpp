@@ -38,6 +38,8 @@ static QString findNextPageQueryString(const QDomDocument& dom);
 
 static QString executeXQuery(const QDomDocument& dom, const QString& query);
 
+static QDomDocument* parseSvtPlayReply(QNetworkReply* reply);
+
 EpisodeListBuilder::EpisodeListBuilder(QString episodeType, QUrl url)
     : state_(GET_EPISODES_URLS),
       aborted_(false),
@@ -162,54 +164,57 @@ void EpisodeListBuilder::doDownloadFsm()
         {
             QNetworkReply* reply = readyReplies_.takeFirst();
 
-            QDomDocument programDoc;
-            programDoc.setContent(reply->readAll());
+            QDomDocument* doc = parseSvtPlayReply(reply);
 
-            QList<QUrl> urls = findEpisodeUrls(programDoc);
+            reply->deleteLater();
 
-            if (urls.isEmpty())
+            if (doc != NULL)
             {
-                pendingReplies_.clear();
+                QList<QUrl> urls = findEpisodeUrls(*doc);
 
-                busy_ = false;
-
-                emit noEpisodesFound(episodeType_);
-
-                return;
-            }
-
-            QString query = findNextPageQueryString(programDoc);
-
-            if(!query.isEmpty())
-            {
-                episodesAvailable_ = true;
-                pageUrl_.setEncodedQuery(query.toUtf8());
-            }
-            else
-            {
-                episodesAvailable_ = false;
-            }
-
-            int offset = episodes_.count();
-            if (offset != 0)
-            {
-                offset = episodes_.values().last()->position + 1;
-            }
-
-            for (int i = 0; i < urls.size(); ++i)
-            {
-                QUrl url = urls.at(i);
-
-                if (!url.toString().contains("playprima"))
+                if (urls.isEmpty())
                 {
-                    QNetworkRequest request(url);
-                    request.setAttribute(QNetworkRequest::User, QVariant(offset + i));
+                    pendingReplies_.clear();
 
-                    QNetworkReply* episodeReply = episodeDownloader_.get(request);
-                    pendingReplies_.push_back(episodeReply);
+                    busy_ = false;
+
+                    emit noEpisodesFound(episodeType_);
+
+                    return;
+                }
+
+                QString query = findNextPageQueryString(*doc);
+
+                if(!query.isEmpty())
+                {
+                    episodesAvailable_ = true;
+                    pageUrl_.setEncodedQuery(query.toUtf8());
+                }
+                else
+                {
+                    episodesAvailable_ = false;
+                }
+
+                int offset = episodes_.count();
+                if (offset != 0)
+                {
+                    offset = episodes_.values().last()->position + 1;
+                }
+
+                for (int i = 0; i < urls.size(); ++i)
+                {
+                    QUrl url = urls.at(i);
+
+                    if (!url.toString().contains("playprima"))
+                    {
+                        QNetworkRequest request(url);
+                        request.setAttribute(QNetworkRequest::User, QVariant(offset + i));
+
+                        QNetworkReply* episodeReply = episodeDownloader_.get(request);
+                        pendingReplies_.push_back(episodeReply);
+                    }
                 }
             }
-
             state_ = GET_EPISODE_DOCS;
             break;
         }
@@ -221,13 +226,17 @@ void EpisodeListBuilder::doDownloadFsm()
                 {
                     QNetworkReply* reply = readyReplies_.takeFirst();
 
-                    QDomDocument doc;
-                    doc.setContent(reply->readAll());
+                    QDomDocument* doc = parseSvtPlayReply(reply);
 
-                    Episode* episode = parseEpisodeDoc(doc);
+                    if (doc != NULL)
+                    {
+                        Episode* episode = parseEpisodeDoc(*doc);
 
-                    episode->position = reply->request().attribute(QNetworkRequest::User).toInt();
-                    episodes_[episode->position] = episode;
+                        episode->position = reply->request().attribute(QNetworkRequest::User).toInt();
+                        episodes_[episode->position] = episode;
+                    }
+
+                    reply->deleteLater();
                 }
 
                 busy_ = false;
@@ -408,3 +417,33 @@ QString executeXQuery(const QDomDocument& dom, const QString& query)
 
     return resultString.trimmed();
 }
+
+QDomDocument* parseSvtPlayReply(QNetworkReply* reply)
+{
+    QString replyData = QString::fromUtf8(reply->readAll());
+    replyData.replace(QRegExp("<video(.*)controls></video>"), "");
+
+    QDomDocument* doc = new QDomDocument();
+
+    QString error;
+    int errorColumn;
+    int errorLine;
+
+    if (!doc->setContent(replyData, &error, &errorLine, &errorColumn))
+    {
+        std::cerr << "Failed to parse: " << std::endl;
+        std::cerr << reply->url().toString().toStdString() << std::endl;
+
+        std::cerr << "Error: " << error.toStdString() << std::endl;
+        std::cerr << "Line: " << errorLine << ", Column: " << errorColumn << std::endl;
+
+        delete doc;
+
+        return NULL;
+    }
+    else
+    {
+        return doc;
+    }
+}
+
