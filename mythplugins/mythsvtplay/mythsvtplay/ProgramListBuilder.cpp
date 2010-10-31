@@ -14,6 +14,7 @@
 #include <QDomNamedNodeMap>
 
 #include <QTextStream>
+#include <QRegExp>
 
 #include <QBuffer>
 #include <QXmlQuery>
@@ -30,6 +31,8 @@ static QString findProgramCategory(const QDomDocument& dom);
 static QUrl findProgramRssFeed(const QDomDocument& dom);
 static QList<QPair<QString, QString> > findProgramEpisodeTypeLinks(const QDomDocument& dom);
 static QString executeXQuery(const QDomDocument& dom, const QString& query);
+
+static QDomDocument* parseSvtPlayReply(QNetworkReply* reply);
 
 ProgramListBuilder::ProgramListBuilder() :
         state_(INITIAL),
@@ -130,15 +133,17 @@ void ProgramListBuilder::doDownloadFsm()
 
             QNetworkReply* reply = readyReplies_.takeFirst();
 
-            QDomDocument doc;
-            if (!doc.setContent(reply->readAll()))
+            QDomDocument* doc = parseSvtPlayReply(reply);
+
+            reply->deleteLater();
+
+            if (doc == NULL)
             {
                 return;
             }
 
-            reply->deleteLater();
 
-            fillProgramTitlesAndUrls(doc);
+            fillProgramTitlesAndUrls(*doc);
 
             for (int i = 0; i < programs_.count(); ++i)
             {
@@ -178,15 +183,13 @@ void ProgramListBuilder::doDownloadFsm()
 
                     Program* program = reply->request().attribute(QNetworkRequest::User).value<Program*>();
 
-                    QDomDocument doc;
-                    if (!doc.setContent(reply->readAll()))
+                    QDomDocument* doc = parseSvtPlayReply(reply);
+
+                    if (doc == NULL)
                     {
                         reply->deleteLater();
 
                         failedDownloadCount_[program->title]++;
-
-                        std::cerr << "Failed to download: " << std::endl;
-                        std::cerr << reply->url().toString().toStdString() << std::endl;
 
                         if (failedDownloadCount_[program->title] > 5)
                         {
@@ -213,7 +216,7 @@ void ProgramListBuilder::doDownloadFsm()
                     {
                         reply->deleteLater();
 
-                        fillOtherProgramInfo(program, doc);
+                        fillOtherProgramInfo(program, *doc);
                     }
                 }
 
@@ -399,4 +402,33 @@ QString executeXQuery(const QDomDocument& dom, const QString& query)
     xquery.evaluateTo(&resultString);
 
     return resultString.trimmed();
+}
+
+QDomDocument* parseSvtPlayReply(QNetworkReply* reply)
+{
+    QString replyData = QString::fromUtf8(reply->readAll());
+    replyData.replace(QRegExp("<video(.*)controls></video>"), "");
+
+    QDomDocument* doc = new QDomDocument();
+
+    QString error;
+    int errorColumn;
+    int errorLine;
+
+    if (!doc->setContent(replyData, &error, &errorLine, &errorColumn))
+    {
+        std::cerr << "Failed to parse: " << std::endl;
+        std::cerr << reply->url().toString().toStdString() << std::endl;
+
+        std::cerr << "Error: " << error.toStdString() << std::endl;
+        std::cerr << "Line: " << errorLine << ", Column: " << errorColumn << std::endl;
+
+        delete doc;
+
+        return NULL;
+    }
+    else
+    {
+        return doc;
+    }
 }
