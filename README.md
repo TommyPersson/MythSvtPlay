@@ -6,15 +6,14 @@ MythSvtPlay is a plugin for the Linux DVR software MythTV
 published by the swedish national television SVT on SVT Play
 (http://svtplay.se).
 
-Compatability
+Compatibility
 -------------
 
-MythSvtPlay is developed for and tested against MythTV 0.22. It is
-untested on 0.23 but it should work fine. Please report any issues you
-might have otherwise. 
+MythSvtPlay is available for MythTV versions 0.22, 0.23 and 0.24. 
+Any new development will only take place on the '0.24-compatible' branch. 
 
-The Linux distribution used during development is Ubuntu 9.10 and
-Mythbuntu 9.10. Other distributions might have other names for the
+The Linux distribution used during development is Ubuntu 10.10 and
+Mythbuntu 10.10. Other distributions might have other names for the
 different packages as well as alternate installation paths. Again,
 please report any issues you might have.
 
