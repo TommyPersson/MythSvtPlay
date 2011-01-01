@@ -371,8 +371,21 @@ QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom)
 
 QUrl findEpisodeImageUrl(const QDomDocument& dom)
 {
-    QString imageUrl = executeXQuery(dom, "string(doc($inputDocument)//link[@rel='image_src']/@href)");
-    imageUrl.replace("thumb","start");
+    QString flashvars = executeXQuery(dom, "string((doc($inputDocument)//param[@name='flashvars'])[1]/@value)");
+
+    int index = flashvars.indexOf("background=") + 11;
+
+    QString imageUrl = QString("");
+
+    if (index != -1)
+    {
+        QString s1 = flashvars.mid(index);
+        imageUrl = s1.left(s1.indexOf("&amp;"));
+    }
+    else
+    {
+        std::cerr << "No episode image found." << std::endl;
+    }
 
     return QUrl(imageUrl);
 }

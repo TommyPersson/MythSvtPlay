@@ -139,9 +139,10 @@ void ProgramListBuilder::doDownloadFsm()
 
             if (doc == NULL)
             {
+                std::cerr << "Unable to parse reply: " << reply->url().path().toStdString() << std::endl;
+
                 return;
             }
-
 
             fillProgramTitlesAndUrls(*doc);
 
@@ -334,8 +335,7 @@ QString findProgramDescription(const QDomDocument& dom)
 
 QUrl findProgramImageUrl(const QDomDocument& dom)
 {
-    QString url = executeXQuery(dom, "string(doc($inputDocument)//link[@rel='image_src']/@href)");
-    url.replace("thumb","start");
+    QString url = executeXQuery(dom, "string(doc($inputDocument)//meta[@property='og:image']/@content)");
 
     return QUrl(url);
 }
