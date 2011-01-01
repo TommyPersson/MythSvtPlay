@@ -15,7 +15,6 @@
 
 #include <mythtv/mythcontext.h>
 
-#include <mythtv/libmythui/mythsystem.h>
 #include <mythtv/libmythui/mythuibutton.h>
 #include <mythtv/libmythui/mythprogressdialog.h>
 #include <mythtv/libmythui/mythuibuttontree.h>

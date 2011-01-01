@@ -4,7 +4,6 @@
 
 #include <mythtv/mythcontext.h>
 #include <mythtv/mythverbose.h>
-#include <mythtv/libmythui/mythsystem.h>
 #include <mythtv/libmythui/mythprogressdialog.h>
 #include <mythtv/libmythui/mythuibuttontree.h>
 #include <mythtv/libmythui/mythuibuttonlist.h>

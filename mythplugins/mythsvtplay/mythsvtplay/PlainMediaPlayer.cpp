@@ -49,8 +49,6 @@ void PlainMediaPlayer::run()
                << (episode_->urlIsPlaylist ? "-playlist" : "")
                << mediaUrl.toString();
 
-    gContext->sendPlaybackStart();
-
     std::cerr << "Playing: <" << mediaUrl.toString().toStdString() << ">" << std::endl;
 
     playerProcess_.start("mplayer", playerArgs);
@@ -63,8 +61,6 @@ void PlainMediaPlayer::run()
 
     playerProcess_.close();
     playerProcess_.kill();
-
-    gContext->sendPlaybackEnd();
 
     emit playbackFinished();
 }

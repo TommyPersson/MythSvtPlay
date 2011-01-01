@@ -155,20 +155,15 @@ void RtmpMediaPlayer::startPlaying()
                << "-ao" << "alsa"
                << GetConfDir() + "/mythsvtplay/stream.dump";
 
-    gContext->sendPlaybackStart();
-
     std::cerr << "Playing: <" << GetConfDir().toStdString() << "/mythsvtplay/stream.dump" << ">" << std::endl;
 
     playerProcess_.start("mplayer", playerArgs);
-
 }
 
 void RtmpMediaPlayer::stopPlaying()
 {
     playerProcess_.close();
     playerProcess_.kill();
-
-    gContext->sendPlaybackEnd();
 }
 
 
