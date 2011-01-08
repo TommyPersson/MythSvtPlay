@@ -21,7 +21,7 @@ int Settings::GetMaxBitrate()
             QByteArray line = file.readLine();
             QString strLine = QString(line);
 
-            if (strLine.contains("MaxBitrate:"));
+            if (strLine.contains("MaxBitrate:"))
             {
                 return strLine.split(":", QString::SkipEmptyParts).at(1).toInt();
             }
