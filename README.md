@@ -99,6 +99,17 @@ Unfortunately this marking is not reflected on the program menu items
 yet. This issue is purely visual however, the functionality is there
 and I will fix it when I rework the UI.
 
+__Setting the max bitrate:__
+
+Create the file ~/.mythtv/mythsvtplay/config and add the following line:
+
+    MaxBitrate: $bitrate_here
+
+Any integer value is allowed. The plugin will choose highest quality 
+stream equal to or lower that this value. If either the config file or 
+the MaxBitrate line doesn't exist, the plugin will automatically 
+use the highest quality stream available.
+
 Known Issues / Bugs
 -------------------
 
