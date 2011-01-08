@@ -13,7 +13,7 @@ class QNetworkReply;
 class QDomDocument;
 
 class Program;
-class Episode;
+class IProgramItem;
 
 class EpisodeListBuilder : public QObject
 {
@@ -30,7 +30,7 @@ public:
 
     bool moreEpisodesAvailable();
 
-    QList<Episode*> episodeList();
+    QList<IProgramItem*> episodeList();
 
     void abort();
 
@@ -51,7 +51,7 @@ private:
 
     void downloadImage(const QUrl& url);
 
-    Episode* parseEpisodeDoc(const QDomDocument& dom);
+    IProgramItem* parseEpisodeDoc(const QDomDocument& dom);
 
     bool aborted_;
 
@@ -62,7 +62,7 @@ private:
     QUrl pageUrl_;
     QString episodeType_;
 
-    QMap<int, Episode*> episodes_;
+    QMap<int, IProgramItem*> episodes_;
 
     QList<QNetworkReply*> pendingReplies_;
     QList<QNetworkReply*> readyReplies_;

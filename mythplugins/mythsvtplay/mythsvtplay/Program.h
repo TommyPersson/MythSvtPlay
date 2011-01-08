@@ -20,9 +20,9 @@ struct Program
 
     QString logoFilepath;
 
-    QList<Episode*> episodes;
+    QList<IProgramItem*> episodes;
     QList<QPair<QString,QString> > episodeTypeLinks;
-    QMap<QString, QList<Episode*> > episodesByType;
+    QMap<QString, QList<IProgramItem*> > episodesByType;
 
     QString link;
     QUrl rssUrl;

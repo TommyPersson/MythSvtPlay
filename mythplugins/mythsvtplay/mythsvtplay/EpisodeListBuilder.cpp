@@ -38,6 +38,7 @@ static QString findAvailableUntilDate(const QDomDocument& dom);
 static QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom);
 static QUrl findEpisodeImageUrl(const QDomDocument& dom);
 static QString findNextPageQueryString(const QDomDocument& dom);
+static void addDirectories(QMap<int, IProgramItem*>& items, const QDomDocument& dom);
 
 static QString executeXQuery(const QDomDocument& dom, const QString& query);
 
@@ -120,7 +121,7 @@ void EpisodeListBuilder::abort()
     }
 }
 
-QList<Episode*> EpisodeListBuilder::episodeList()
+QList<IProgramItem*> EpisodeListBuilder::episodeList()
 {
     return episodes_.values();
 }
@@ -173,18 +174,9 @@ void EpisodeListBuilder::doDownloadFsm()
 
             if (doc != NULL)
             {
+                addDirectories(episodes_, *doc);
+
                 QList<QUrl> urls = findEpisodeUrls(*doc);
-
-                if (urls.isEmpty())
-                {
-                    pendingReplies_.clear();
-
-                    busy_ = false;
-
-                    emit noEpisodesFound(episodeType_);
-
-                    return;
-                }
 
                 QString query = findNextPageQueryString(*doc);
 
@@ -219,11 +211,12 @@ void EpisodeListBuilder::doDownloadFsm()
                 }
             }
             state_ = GET_EPISODE_DOCS;
+            doDownloadFsm();
             break;
         }
     case GET_EPISODE_DOCS:
         {
-            if (pendingReplies_.size() == 0)
+            if (pendingReplies_.isEmpty())
             {
                 while (!readyReplies_.isEmpty())
                 {
@@ -233,10 +226,13 @@ void EpisodeListBuilder::doDownloadFsm()
 
                     if (doc != NULL)
                     {
-                        Episode* episode = parseEpisodeDoc(*doc);
+                        IProgramItem* episode = parseEpisodeDoc(*doc);
 
-                        episode->position = reply->request().attribute(QNetworkRequest::User).toInt();
-                        episodes_[episode->position] = episode;
+                        if (episode != NULL)
+                        {
+                            episode->position = reply->request().attribute(QNetworkRequest::User).toInt();
+                            episodes_[episode->position] = episode;
+                        }
                     }
 
                     reply->deleteLater();
@@ -267,7 +263,7 @@ QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
 {
     QString results = executeXQuery(dom,
                                     "<urls> "
-                                    "{for $a in reverse(doc($inputDocument)//div[@id='sb']//div[contains(@class, 'show-tab-container')]//li//a) "
+                                    "{for $a in reverse(doc($inputDocument)//div[@id='sb']//div[contains(@class, 'show-tab-container')]//li//a[not(contains(@class, 'folder'))]) "
                                     "return "
                                     "<url>{string($a/@href)}</url>} "
                                     "</urls>\n");
@@ -287,6 +283,44 @@ QList<QUrl> findEpisodeUrls(const QDomDocument& dom)
     return urlList;
 }
 
+void addDirectories(QMap<int, IProgramItem*>& items, const QDomDocument& dom)
+{
+    QString results = executeXQuery(dom,
+                                    "<folders> "
+                                    "{for $a in doc($inputDocument)//div[@id='sb']//div[@class='content']//a[contains(@class, 'folder')]"
+                                    "return "
+                                    "<folder>"
+                                    "  <url>{string($a/@href)}</url>"
+                                    "  <title>{$a/span/text()}</title>"
+                                    "  <imgUrl>{$a/img[contains(@class, 'folder-thumb')]/@src}</imgUrl>"
+                                    "</folder>}"
+                                    "</folders>\n");
+
+    QDomDocument xqueryResults;
+    xqueryResults.setContent(results);
+
+    QDomNodeList folders = xqueryResults.elementsByTagName("folder");
+
+    QString baseUrl = executeXQuery(dom, "string(doc($inputDocument)//div[contains(@class, 'info')]//h1//a/@href)");
+
+    for (int i = 0; i < folders.count(); ++i)
+    {
+        EpisodeDirectory* ed = new EpisodeDirectory();
+
+        QString url = folders.at(i).childNodes().at(0).toElement().text().trimmed();
+        QString title = folders.at(i).childNodes().at(1).toElement().text().trimmed();
+        QString imgUrl = folders.at(i).childNodes().at(2).toElement().text().trimmed();
+
+        ed->url = QUrl(baseUrl + url);
+        ed->title = QString("Katalog: " + title);
+        ed->episodeImageFilepath = GetConfDir() + "/mythsvtplay/images/" + imgUrl.section('/', -1);
+        ed->type = findType(dom);
+        ed->position = items.count();
+
+        items.insert(items.count(), ed);
+    }
+}
+
 // not used yet, silly implementation
 QList<QDateTime> findEpisodePubDates(const QDomDocument& dom)
 {
@@ -297,13 +331,20 @@ QList<QDateTime> findEpisodePubDates(const QDomDocument& dom)
     return dateList;
 }
 
-Episode* EpisodeListBuilder::parseEpisodeDoc(const QDomDocument& dom)
+IProgramItem* EpisodeListBuilder::parseEpisodeDoc(const QDomDocument& dom)
 {
     Episode* episode = new Episode;
 
     episode->type = findType(dom);
 
     episode->title = findTitle(dom);
+
+    if (episode->title == "SVT Play")
+    {
+        delete episode;
+        return NULL;
+    }
+
     episode->description = findDescription(dom);
 
     if (episode->description.simplified() == "")
@@ -365,7 +406,7 @@ QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom)
 
     mediaUrls["flv"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, '.flv'))][1]/@href)"));
 
-    QRegExp rx("url:([a-zA-Z0-9:/\._\-]*),bitrate:([0-9]*)");
+    QRegExp rx("url:([a-zA-Z0-9:/\\._\\-]*),bitrate:([0-9]*)");
     QString flashVars = executeXQuery(dom, "string((doc($inputDocument)//param[@name='flashvars'])[1]/@value)");
     int pos = 0;
 
@@ -388,8 +429,17 @@ QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom)
             break;
         }
 
-        //std::cerr << bitrate.toStdString() << ": " << url.toStdString() << std::endl;
         pos += rx.matchedLength();
+    }
+
+    if (pos == -1 && mediaUrls["rtmps"].isEmpty())
+    {
+        mediaUrls["rtmps"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmps://') or contains(@href, 'rtmpe://'))][1]/@href)"));
+    }
+
+    if (pos == -1 && mediaUrls["rtmp"].isEmpty())
+    {
+        mediaUrls["rtmp"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmp://'))][1]/@href)"));
     }
 
     return mediaUrls;

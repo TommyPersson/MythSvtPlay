@@ -7,6 +7,7 @@
 #include "RtmpMediaPlayer.h"
 
 #include <iostream>
+#include <typeinfo>
 
 #include <QCoreApplication>
 
@@ -19,11 +20,12 @@
 #include <mythtv/libmythui/mythprogressdialog.h>
 #include <mythtv/libmythui/mythuibuttontree.h>
 
-ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program)
+ProgramWindow::ProgramWindow(MythScreenStack *parentStack, Program* program, bool disposeProgramOnExit)
     : MythScreenType(parentStack, "ProgramWindow"),
       program_(program),
       progressDialog_(NULL),
-      mediaPlayer_(NULL)
+      mediaPlayer_(NULL),
+      disposeProgramOnExit_(disposeProgramOnExit)
 {
     if (!LoadWindowFromXML("mythsvtplay/svtplay-ui.xml", "program-view", this))
     {
@@ -101,16 +103,22 @@ ProgramWindow::~ProgramWindow()
         episodeBuilders_.values().at(i)->abort();
         episodeBuilders_.values().at(i)->deleteLater();
     }
+
     episodeBuilders_.clear();
     program_->episodesByType.clear();
 
     imageLoader_.terminate();
     imageLoader_.wait();
+
+    if (disposeProgramOnExit_)
+    {
+        delete program_;
+    }
 }
 
 void ProgramWindow::onEpisodesReady(const QString& episodeType)
 {
-    QList<Episode*> episodes = episodeBuilders_[episodeType]->episodeList();
+    QList<IProgramItem*> episodes = episodeBuilders_[episodeType]->episodeList();
 
     removeBusyImage(episodeType);
 
@@ -136,13 +144,40 @@ void ProgramWindow::onEpisodeClicked(MythUIButtonListItem* item)
         return;
     }
     else if (item->GetText() == QString::fromUtf8("Hämtar ..."))
+    {
         return;
+    }
 
     QVariant itemData = item->GetData();
 
-    Episode* episode = itemData.value<Episode*>();
+    IProgramItem* programItem = itemData.value<IProgramItem*>();
 
+    handleProgramItem(programItem);
+}
+
+void ProgramWindow::handleProgramItem(IProgramItem* item)
+{
+    if (Episode* episode = dynamic_cast<Episode*>(item)) {
+        handleEpisode(episode);
+    }
+    else if (EpisodeDirectory* episodeDirectory = dynamic_cast<EpisodeDirectory*>(item)) {
+        handleEpisodeDirectory(episodeDirectory);
+    }
+    else
+    {
+        std::cerr << "Program item was neither an episode or directory. Should not happen." << std::endl;
+    }
+}
+
+void ProgramWindow::handleEpisode(Episode* episode)
+{
     setupMediaPlayer(episode);
+}
+
+void ProgramWindow::handleEpisodeDirectory(EpisodeDirectory* dir)
+{
+    ProgramWindow* window = new ProgramWindow(GetScreenStack(), dir->createProgram(*program_), true);
+    GetScreenStack()->AddScreen(window);
 }
 
 void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
@@ -162,15 +197,23 @@ void ProgramWindow::onEpisodeSelected(MythUIButtonListItem* item)
 
     QVariant itemData = item->GetData();
 
-    Episode* episode = itemData.value<Episode*>();
+    IProgramItem* programItem = itemData.value<IProgramItem*>();
 
     episodePreviewImage_->Reset();
-    episodePreviewImage_->SetFilename(episode->episodeImageFilepath);
+    episodePreviewImage_->SetFilename(programItem->episodeImageFilepath);
     imageLoader_.loadImage(episodePreviewImage_->GetFilename());
 
-    episodeDescriptionText_->SetText(episode->description);
-    episodeTitleText_->SetText(episode->title);
-    episodeAvailableToDateText_->SetText(episode->availableUntilDate);
+    episodeDescriptionText_->SetText(programItem->description);
+    episodeTitleText_->SetText(programItem->title);
+
+    if (Episode* episode = dynamic_cast<Episode*>(programItem))
+    {
+        episodeAvailableToDateText_->SetText(episode->availableUntilDate);
+    }
+    else
+    {
+        episodeAvailableToDateText_->SetText("");
+    }
 
     Refresh();
 }
@@ -229,7 +272,7 @@ void ProgramWindow::populateEpisodeList()
 
     episodeList_->Reset();
 
-    QList<Episode*> episodes = program_->episodesByType[selectedEpisodeType_];
+    QList<IProgramItem*> episodes = program_->episodesByType[selectedEpisodeType_];
 
     for (int i = 0; i < episodes.size(); ++i)
     {

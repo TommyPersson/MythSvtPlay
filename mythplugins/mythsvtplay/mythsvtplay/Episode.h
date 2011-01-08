@@ -7,25 +7,40 @@
 #include <QMetaType>
 #include <QMap>
 
-struct Episode
+class Program;
+
+struct IProgramItem
 {
     QString title;
     QString description;
     QString type;
 
+    QString episodeImageFilepath;
+
+    int position;
+
+    virtual ~IProgramItem() {};
+};
+
+struct Episode : public IProgramItem
+{
     QDateTime publishedDate;
     QString availableUntilDate;
 
     QMap<QString, QUrl> mediaUrls;
     bool urlIsPlaylist;
-    QString episodeImageFilepath;
-
-    int position;
 };
 
-bool comparePosition(Episode* l, Episode* r);
+struct EpisodeDirectory : public IProgramItem
+{
+    QUrl url;
 
-Q_DECLARE_METATYPE(Episode)
-Q_DECLARE_METATYPE(Episode*)
+    Program* createProgram(const Program& p);
+};
+
+bool comparePosition(IProgramItem* l, IProgramItem* r);
+
+Q_DECLARE_METATYPE(IProgramItem*)
+Q_DECLARE_METATYPE(IProgramItem)
 
 #endif // EPISODE_H

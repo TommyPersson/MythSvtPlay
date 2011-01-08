@@ -17,7 +17,10 @@ class ProgressDialog;
 class Program;
 class EpisodeListBuilder;
 class IMediaPlayer;
+
+class IProgramItem;
 class Episode;
+class EpisodeDirectory;
 
 class ProgramWindow : public MythScreenType
 {
@@ -25,7 +28,8 @@ class ProgramWindow : public MythScreenType
 
 public:
     ProgramWindow(MythScreenStack *parentStack,
-                  Program* program);
+                  Program* program,
+                  bool disposeProgramOnExit = false);
     ~ProgramWindow();
 
     bool keyPressEvent(QKeyEvent *event);
@@ -57,9 +61,15 @@ private:
     void addBusyImage(const QString& episodeType);
     void removeBusyImage(const QString& episodeType);
 
+    void handleProgramItem(IProgramItem* item);
+    void handleEpisode(Episode* episode);
+    void handleEpisodeDirectory(EpisodeDirectory* episodeDirectory);
+
     void doClose();
 
     Program* program_;
+    bool disposeProgramOnExit_;
+
     QMap<QString, EpisodeListBuilder*> episodeBuilders_;
 
     QString selectedEpisodeType_;
