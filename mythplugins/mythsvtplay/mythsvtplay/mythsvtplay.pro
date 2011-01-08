@@ -25,7 +25,8 @@ HEADERS += MainWindow.h \
     IMediaPlayer.h \
     PlainMediaPlayer.h \
     RtmpMediaPlayer.h \
-    FavoritesStore.h
+    FavoritesStore.h \
+    Settings.h
 SOURCES += main.cpp \
     MainWindow.cpp \
     ProgramWindow.cpp \
@@ -38,7 +39,8 @@ SOURCES += main.cpp \
     Episode.cpp \
     PlainMediaPlayer.cpp \
     RtmpMediaPlayer.cpp \
-    FavoritesStore.cpp
+    FavoritesStore.cpp \
+    Settings.cpp
 
 macx:QMAKE_LFLAGS += -flat_namespace \
     -undefined \

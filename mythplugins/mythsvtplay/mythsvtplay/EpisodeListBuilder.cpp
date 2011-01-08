@@ -16,12 +16,15 @@
 #include <QXmlQuery>
 #include <QXmlSerializer>
 
+#include <QRegExp>
 #include <QtAlgorithms>
 
 #include <mythtv/mythdirs.h>
 
 #include "Program.h"
 #include "Episode.h"
+
+#include "Settings.h"
 
 #include <iostream>
 
@@ -362,9 +365,32 @@ QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom)
 
     mediaUrls["flv"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, '.flv'))][1]/@href)"));
 
-    mediaUrls["rtmp"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmp://'))][1]/@href)"));
+    QRegExp rx("url:([a-zA-Z0-9:/\._\-]*),bitrate:([0-9]*)");
+    QString flashVars = executeXQuery(dom, "string((doc($inputDocument)//param[@name='flashvars'])[1]/@value)");
+    int pos = 0;
 
-    mediaUrls["rtmps"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmps://') or contains(@href, 'rtmpe://'))][1]/@href)"));
+    while ((pos = rx.indexIn(flashVars, pos)) != -1)
+    {
+        QString bitrate = rx.cap(2);
+        QString url = rx.cap(1);
+
+        if (bitrate.toInt() <= Settings::GetMaxBitrate())
+        {
+            if (url.contains("rtmps") || url.contains("rtmpe"))
+            {
+                mediaUrls["rtmps"] = QUrl(url);
+            }
+            else
+            {
+                mediaUrls["rtmp"] = QUrl(url);
+            }
+
+            break;
+        }
+
+        //std::cerr << bitrate.toStdString() << ": " << url.toStdString() << std::endl;
+        pos += rx.matchedLength();
+    }
 
     return mediaUrls;
 }
