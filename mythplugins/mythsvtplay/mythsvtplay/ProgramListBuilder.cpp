@@ -146,6 +146,8 @@ void ProgramListBuilder::doDownloadFsm()
 
             fillProgramTitlesAndUrls(*doc);
 
+            delete doc;
+
             for (int i = 0; i < programs_.count(); ++i)
             {
                 QUrl url("http://svtplay.se" + programs_[i]->link);
@@ -156,6 +158,7 @@ void ProgramListBuilder::doDownloadFsm()
 
                 pendingReplies_.push_back(showReply);
             }
+
             emit numberOfProgramsComplete(0);
             emit numberOfProgramsFound(programs_.count());
 
@@ -218,6 +221,8 @@ void ProgramListBuilder::doDownloadFsm()
                         reply->deleteLater();
 
                         fillOtherProgramInfo(program, *doc);
+
+                        delete doc;
                     }
                 }
 
@@ -252,7 +257,6 @@ void ProgramListBuilder::doDownloadFsm()
             emit numberOfProgramsComplete(programsComplete_);
             emit programComplete(peekProgram->title);
 
-
             if (pendingReplies_.count() == 0)
             {
                 while(!readyReplies_.empty())
@@ -265,12 +269,13 @@ void ProgramListBuilder::doDownloadFsm()
                     QString filename = url.path().section('/', -1);
 
                     QDir savelocation(GetConfDir() + "/mythsvtplay/images/");
-
                     QFile savefile(savelocation.absolutePath() + "/" + filename);
 
                     savefile.open(QIODevice::WriteOnly);
                     savefile.write(reply->readAll());
                     savefile.close();
+
+                    reply->deleteLater();
 
                     program->logoFilepath = savelocation.absolutePath() + "/" + filename;
                 }

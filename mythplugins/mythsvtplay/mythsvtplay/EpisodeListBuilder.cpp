@@ -68,6 +68,7 @@ EpisodeListBuilder::~EpisodeListBuilder()
     {
         delete episodes_.values().at(i);
     }
+
     episodes_.clear();
 }
 
@@ -106,18 +107,21 @@ void EpisodeListBuilder::abort()
     {
         QNetworkReply* r = pendingReplies_.takeFirst();
         r->abort();
+        r->deleteLater();
     }
 
     while (!readyReplies_.isEmpty())
     {
         QNetworkReply* r = readyReplies_.takeFirst();
         r->abort();
+        r->deleteLater();
     }
 
     while (!imageDownloadQueue_.isEmpty())
     {
         QNetworkReply* r = imageDownloadQueue_.takeFirst();
         r->abort();
+        r->deleteLater();
     }
 }
 
@@ -180,6 +184,8 @@ void EpisodeListBuilder::doDownloadFsm()
 
                 QString query = findNextPageQueryString(*doc);
 
+                delete doc;
+
                 if(!query.isEmpty())
                 {
                     episodesAvailable_ = true;
@@ -227,6 +233,8 @@ void EpisodeListBuilder::doDownloadFsm()
                     if (doc != NULL)
                     {
                         IProgramItem* episode = parseEpisodeDoc(*doc);
+
+                        delete doc;
 
                         if (episode != NULL)
                         {
