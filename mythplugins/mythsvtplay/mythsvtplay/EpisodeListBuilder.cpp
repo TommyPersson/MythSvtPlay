@@ -35,7 +35,11 @@ static QString findType(const QDomDocument& dom);
 static QString findTitle(const QDomDocument& dom);
 static QString findDescription(const QDomDocument& dom);
 static QString findAvailableUntilDate(const QDomDocument& dom);
+
 static QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom);
+static void fillDynamicStreams(QMap<QString, QUrl>& mediaUrls, const QDomDocument& dom);
+static void fillOldStyleStreams(QMap<QString, QUrl>& mediaUrls, const QDomDocument& dom);
+
 static QUrl findEpisodeImageUrl(const QDomDocument& dom);
 static QString findNextPageQueryString(const QDomDocument& dom);
 static void addDirectories(QMap<int, IProgramItem*>& items, const QDomDocument& dom);
@@ -411,13 +415,49 @@ QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom)
     QMap<QString, QUrl> mediaUrls;
 
     mediaUrls["wmv"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, '.asx') or contains(@href, '.wmv'))][1]/@href)"));
-
     mediaUrls["flv"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, '.flv'))][1]/@href)"));
+    mediaUrls["rtmp"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmp://'))][1]/@href)"));
+    mediaUrls["rtmps"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmps://') or contains(@href, 'rtmpe://'))][1]/@href)"));
 
+    fillOldStyleStreams(mediaUrls, dom);
+    fillDynamicStreams(mediaUrls, dom);
+
+    return mediaUrls;
+}
+
+void fillOldStyleStreams(QMap<QString, QUrl>& mediaUrls, const QDomDocument& dom)
+{
+    QRegExp rx("pathflv=([a-zA-Z0-9:/\\._\\-]*)");
+    QString flashVars = executeXQuery(dom, "string((doc($inputDocument)//param[@name='flashvars'])[1]/@value)");
+
+    int pos = 0;
+    while ((pos = rx.indexIn(flashVars, pos)) != -1)
+    {
+        QString url = rx.cap(1);
+
+        if (url.contains(".flv"))
+        {
+            mediaUrls["flv"] = QUrl(url);
+        }
+        else if (url.contains("rtmp"))
+        {
+            mediaUrls["rtmp"] = QUrl(url);
+        }
+        else if (url.contains("rtmpe") || url.contains("rtmps"))
+        {
+            mediaUrls["rtmps"] = QUrl(url);
+        }
+
+        break;
+    }
+}
+
+void fillDynamicStreams(QMap<QString, QUrl>& mediaUrls, const QDomDocument& dom)
+{
     QRegExp rx("url:([a-zA-Z0-9:/\\._\\-]*),bitrate:([0-9]*)");
     QString flashVars = executeXQuery(dom, "string((doc($inputDocument)//param[@name='flashvars'])[1]/@value)");
-    int pos = 0;
 
+    int pos = 0;
     while ((pos = rx.indexIn(flashVars, pos)) != -1)
     {
         QString bitrate = rx.cap(2);
@@ -439,18 +479,6 @@ QMap<QString, QUrl> findMediaUrls(const QDomDocument& dom)
 
         pos += rx.matchedLength();
     }
-
-    if (pos == -1 && mediaUrls["rtmps"].isEmpty())
-    {
-        mediaUrls["rtmps"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmps://') or contains(@href, 'rtmpe://'))][1]/@href)"));
-    }
-
-    if (pos == -1 && mediaUrls["rtmp"].isEmpty())
-    {
-        mediaUrls["rtmp"] = QUrl(executeXQuery(dom, "string(doc($inputDocument)//a[(contains(@href, 'rtmp://'))][1]/@href)"));
-    }
-
-    return mediaUrls;
 }
 
 QUrl findEpisodeImageUrl(const QDomDocument& dom)
